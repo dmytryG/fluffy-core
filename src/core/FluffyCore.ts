@@ -22,7 +22,7 @@ export default class FluffyCore {
         controller: ControllerNode
         postware: Array<{ controller: ControllerNode, priority: number | undefined | null }> | undefined | null }): void {
         const postwares = args.postware ?
-            args.postware.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((c) => c.controller)
+            args.postware.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0)).map((c) => c.controller)
             : []
         this.pipelines.push({
             topic: args.topic,
