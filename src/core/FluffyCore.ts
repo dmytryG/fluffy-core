@@ -18,9 +18,9 @@ export default class FluffyCore {
 
     registerRoute({ ...args }:
         { topic: string
-        middlewares: Array<ControllerNode> | undefined | null
+        middlewares?: Array<ControllerNode> | undefined | null
         controller: ControllerNode
-        postware: Array<ControllerNode> | undefined | null }): void {
+        postware?: Array<ControllerNode> | undefined | null }): void {
         this.pipelines.push({
             topic: args.topic,
             middlewares: args.middlewares ?? [],
