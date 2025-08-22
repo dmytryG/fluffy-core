@@ -104,4 +104,18 @@ export default class FluffyCore {
         return res.resp
     }
 
+    async broadcast({data, topic}: {data: any, topic: string}): Promise<void> {
+        const outcoming: Message = {
+            req: data,
+            id: uuidv4(),
+            isResponse: false,
+            resp: undefined,
+            isError: undefined,
+            safeMetadata: undefined
+        }
+        if (this.enableLog) console.log(`${new Date().toISOString()} prepared message to broadcast`, outcoming, 'by topic', topic)
+        await this.provider.publish(topic, outcoming)
+        return
+    }
+
 }
