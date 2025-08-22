@@ -7,16 +7,16 @@ import { v4 as uuidv4 } from 'uuid';
 import APIError from "~/types/APIError";
 
 export default class FluffyCore {
-    private static provider: IProvider;
-    private static pipelines: Pipeline[] = [];
-    private static errorProcessor: ErrorControllerNode;
-    public static enableLog: boolean = true;
+    private provider: IProvider;
+    private pipelines: Pipeline[] = [];
+    private errorProcessor: ErrorControllerNode;
+    public enableLog: boolean = true;
 
-    constructor(private provider: IProvider) {
+    constructor(provider: IProvider) {
         this.provider = provider
     }
 
-    static registerRoute({ ...args }:
+    registerRoute({ ...args }:
         { topic: string
         middlewares: Array<ControllerNode> | undefined
         controller: ControllerNode
@@ -24,7 +24,7 @@ export default class FluffyCore {
         const postwares = args.postware ?
             args.postware.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((c) => c.controller)
             : []
-        FluffyCore.pipelines.push({
+        this.pipelines.push({
             topic: args.topic,
             middlewares: args.middlewares ?? [],
             controller: args.controller,
@@ -32,11 +32,11 @@ export default class FluffyCore {
         })
     }
 
-    static setErrorProcessor(p: ErrorControllerNode): void {
+    setErrorProcessor(p: ErrorControllerNode): void {
         this.errorProcessor = p;
     }
 
-    static async start() {
+    async start() {
         this.provider.setEnableLog(this.enableLog)
         await this.provider.connect();
 
@@ -79,7 +79,7 @@ export default class FluffyCore {
         }
     }
 
-    static async makeRequest({data, topic}: {data: any, topic: string}): Promise<Message> {
+    async makeRequest({data, topic}: {data: any, topic: string}): Promise<Message> {
         const outcoming: Message = {
             req: data,
             id: uuidv4(),
@@ -97,7 +97,7 @@ export default class FluffyCore {
         return resp
     }
 
-    static async makeRequestSimplify({data, topic}: {data: any, topic: string}): Promise<any> {
+    async makeRequestSimplify({data, topic}: {data: any, topic: string}): Promise<any> {
         const res = await this.makeRequest({ data, topic })
         if (res.isError) throw new APIError({ error: res.resp })
         return res.resp

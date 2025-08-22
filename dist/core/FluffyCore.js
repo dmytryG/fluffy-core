@@ -6,27 +6,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const uuid_1 = require("uuid");
 const APIError_1 = __importDefault(require("~/types/APIError"));
 class FluffyCore {
-    static { this.pipelines = []; }
-    static { this.enableLog = true; }
     constructor(provider) {
-        this.provider = provider;
+        this.pipelines = [];
+        this.enableLog = true;
         this.provider = provider;
     }
-    static registerRoute({ ...args }) {
+    registerRoute({ ...args }) {
         const postwares = args.postware ?
             args.postware.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((c) => c.controller)
             : [];
-        FluffyCore.pipelines.push({
+        this.pipelines.push({
             topic: args.topic,
             middlewares: args.middlewares ?? [],
             controller: args.controller,
             postware: postwares ?? []
         });
     }
-    static setErrorProcessor(p) {
+    setErrorProcessor(p) {
         this.errorProcessor = p;
     }
-    static async start() {
+    async start() {
         this.provider.setEnableLog(this.enableLog);
         await this.provider.connect();
         for (const pipeline of this.pipelines) {
@@ -72,7 +71,7 @@ class FluffyCore {
             });
         }
     }
-    static async makeRequest({ data, topic }) {
+    async makeRequest({ data, topic }) {
         const outcoming = {
             req: data,
             id: (0, uuid_1.v4)(),
@@ -92,7 +91,7 @@ class FluffyCore {
         }
         return resp;
     }
-    static async makeRequestSimplify({ data, topic }) {
+    async makeRequestSimplify({ data, topic }) {
         const res = await this.makeRequest({ data, topic });
         if (res.isError)
             throw new APIError_1.default({ error: res.resp });
