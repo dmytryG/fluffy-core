@@ -1,10 +1,10 @@
-import {IProvider} from "~/types/providers/IProvider";
-import {Pipeline} from "~/types/Pipeline";
-import {ControllerNode} from "~/types/ControllerNode";
-import {ErrorControllerNode} from "~/types/ErrorControllerNode";
-import {Message} from "~/types/Message";
+import {IProvider} from "../types/providers/IProvider";
+import {Pipeline} from "../types/Pipeline";
+import {ControllerNode} from "../types/ControllerNode";
+import {ErrorControllerNode} from "../types/ErrorControllerNode";
+import {Message} from "../types/Message";
 import { v4 as uuidv4 } from 'uuid';
-import APIError from "~/types/APIError";
+import APIError from "../types/APIError";
 
 export default class FluffyCore {
     private provider: IProvider;

@@ -1,4 +1,4 @@
-import {ControllerNode} from "~/types/ControllerNode";
+import {ControllerNode} from "../types/ControllerNode";
 
 export interface Pipeline {
     topic: string

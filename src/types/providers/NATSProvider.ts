@@ -1,5 +1,5 @@
 import {connect, NatsConnection, JSONCodec, Subscription, Msg} from "nats";
-import {IProvider} from "~/types/providers/IProvider";
+import {IProvider} from "../../types/providers/IProvider";
 
 export class NATSProvider implements IProvider {
     private connection!: NatsConnection;

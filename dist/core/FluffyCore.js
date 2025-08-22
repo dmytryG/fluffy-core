@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const uuid_1 = require("uuid");
-const APIError_1 = __importDefault(require("~/types/APIError"));
+const APIError_1 = __importDefault(require("../types/APIError"));
 class FluffyCore {
     constructor(provider) {
         this.pipelines = [];
