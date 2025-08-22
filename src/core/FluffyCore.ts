@@ -75,7 +75,7 @@ export default class FluffyCore {
                     ...result, safeMetadata: undefined
                 }
                 if (this.enableLog) console.log(`${new Date().toISOString()} sending reply`, result)
-                await this.provider.reply(result, m)
+                await this.provider.reply({ m, message: result, topic: pipeline.topic })
             });
         }
     }

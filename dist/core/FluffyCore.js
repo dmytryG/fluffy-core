@@ -12,14 +12,11 @@ class FluffyCore {
         this.provider = provider;
     }
     registerRoute({ ...args }) {
-        const postwares = args.postware ?
-            args.postware.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((c) => c.controller)
-            : [];
         this.pipelines.push({
             topic: args.topic,
             middlewares: args.middlewares ?? [],
             controller: args.controller,
-            postware: postwares ?? []
+            postware: args.postware ?? []
         });
     }
     setErrorProcessor(p) {
@@ -61,7 +58,7 @@ class FluffyCore {
                         result = {
                             ...msg,
                             isResponse: true,
-                            resp: e,
+                            resp: JSON.stringify(e),
                             isError: true
                         };
                     }
@@ -71,7 +68,7 @@ class FluffyCore {
                 };
                 if (this.enableLog)
                     console.log(`${new Date().toISOString()} sending reply`, result);
-                await this.provider.reply(result, m);
+                await this.provider.reply({ m, message: result, topic: pipeline.topic });
             });
         }
     }
@@ -100,6 +97,20 @@ class FluffyCore {
         if (res.isError)
             throw new APIError_1.default({ error: res.resp });
         return res.resp;
+    }
+    async broadcast({ data, topic }) {
+        const outcoming = {
+            req: data,
+            id: (0, uuid_1.v4)(),
+            isResponse: false,
+            resp: undefined,
+            isError: undefined,
+            safeMetadata: undefined
+        };
+        if (this.enableLog)
+            console.log(`${new Date().toISOString()} prepared message to broadcast`, outcoming, 'by topic', topic);
+        await this.provider.publish(topic, outcoming);
+        return;
     }
 }
 exports.default = FluffyCore;

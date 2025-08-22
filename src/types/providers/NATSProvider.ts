@@ -1,5 +1,6 @@
 import {connect, NatsConnection, JSONCodec, Subscription, Msg} from "nats";
 import {IProvider} from "../../types/providers/IProvider";
+import {Message} from "../../types/Message";
 
 export class NATSProvider implements IProvider {
     private connection!: NatsConnection;
@@ -20,7 +21,7 @@ export class NATSProvider implements IProvider {
         }
     }
 
-    async publish<T = any>(subject: string, message: T): Promise<void> {
+    async publish(subject: string, message: Message): Promise<void> {
         if (!this.connection) {
             if (this.enableLog) console.error("NATS connection not established");
             return
@@ -28,9 +29,9 @@ export class NATSProvider implements IProvider {
         this.connection.publish(subject, this.codec.encode(message));
     }
 
-    async subscribe<T = any>(
+    async subscribe(
         subject: string,
-        handler: (msg: T, m: any) => Promise<void> | void
+        handler: (msg: Message, m: any) => Promise<void> | void
     ): Promise<void> {
         if (!this.connection) {
             if (this.enableLog) console.error("NATS connection not established");
@@ -40,7 +41,7 @@ export class NATSProvider implements IProvider {
         const sub: Subscription = this.connection.subscribe(subject);
         for await (const m of sub) {
             try {
-                const decoded = this.codec.decode(m.data) as T;
+                const decoded = this.codec.decode(m.data) as Message;
                 await handler(decoded, m);
             } catch (err) {
                 if (this.enableLog) console.error(`[NATS] Error handling message on ${subject}:`, err);
@@ -49,20 +50,20 @@ export class NATSProvider implements IProvider {
         }
     }
 
-    async reply<T = any>(message: T, m: Msg): Promise<void> {
-        if (!m.reply) {
+    async reply(args: {message: Message, m: Msg}): Promise<void> {
+        if (!args.m.reply) {
             if (this.enableLog) console.error("No reply field found");
             return
         }
-        await this.publish(m.reply, message)
+        await this.publish(args.m.reply, args.message)
     }
 
-    async makeRequest<T = any>(subject: string, message: T): Promise<T> {
+    async makeRequest(subject: string, message: Message): Promise<Message> {
         const encoded = this.codec.encode(message)
         const resp = await this.connection.request(subject, encoded);
         if (!resp.data)
             throw new Error("Empty message")
-        const decoded = this.codec.decode(resp.data) as T;
+        const decoded = this.codec.decode(resp.data) as Message;
         return decoded
     }
 

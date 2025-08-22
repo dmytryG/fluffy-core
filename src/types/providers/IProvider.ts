@@ -1,16 +1,27 @@
+import {Message} from "../../types/Message";
+
 export interface IProvider {
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     setEnableLog(enable: boolean): void
 
-    publish<T = any>(subject: string, message: T): Promise<void>;
+    publish(subject: string, message: Message): Promise<void>;
 
-    subscribe<T = any>(
+    subscribe(
         subject: string,
-        handler: (msg: T, m: any) => Promise<void> | void
+        handler: (msg: Message, m: any) => Promise<void> | void
     ): Promise<void>;
 
-    reply<T = any>(message: T, m: any): Promise<void>;
+    reply({
+        message,
+        m,
+        topic,
+                   } : {
+                       message: Message,
+                       m?: any, // for nats
+                       topic?: string
+    }
+    ): Promise<void>;
 
-    makeRequest<T = any>(subject: string, message: T): Promise<T>;
+    makeRequest(subject: string, message: Message): Promise<Message>;
 }

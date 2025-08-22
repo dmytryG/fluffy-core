@@ -47,13 +47,13 @@ class NATSProvider {
             }
         }
     }
-    async reply(message, m) {
-        if (!m.reply) {
+    async reply(args) {
+        if (!args.m.reply) {
             if (this.enableLog)
                 console.error("No reply field found");
             return;
         }
-        await this.publish(m.reply, m);
+        await this.publish(args.m.reply, args.message);
     }
     async makeRequest(subject, message) {
         const encoded = this.codec.encode(message);
