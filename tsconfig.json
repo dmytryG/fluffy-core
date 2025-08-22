@@ -9,10 +9,15 @@
     /* Modules */
     "module": "commonjs",
     "moduleResolution": "node",
-    "baseUrl": "./",
+    "baseUrl": "./src",
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["*"]
     },
+
+    //    "baseUrl": "./",
+//    "paths": {
+//      "~/*": ["./src/*"]
+//    },
 //    "typeRoots": ["./src/core/types"],
      "types": ["node"],
 
