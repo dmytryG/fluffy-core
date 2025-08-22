@@ -29,7 +29,7 @@ class FluffyCore {
         this.provider.setEnableLog(this.enableLog);
         await this.provider.connect();
         for (const pipeline of this.pipelines) {
-            await this.provider.subscribe(pipeline.topic, async (msg, m) => {
+            this.provider.subscribe(pipeline.topic, async (msg, m) => {
                 let result;
                 try {
                     for (const middleware of pipeline.middlewares) {

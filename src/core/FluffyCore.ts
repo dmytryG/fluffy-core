@@ -41,7 +41,7 @@ export default class FluffyCore {
         await this.provider.connect();
 
         for (const pipeline of this.pipelines) {
-            await this.provider.subscribe(pipeline.topic, async (msg: Message, m: any) => {
+            this.provider.subscribe(pipeline.topic, async (msg: Message, m: any) => {
                 let result: Message;
                 try {
                     for (const middleware of pipeline.middlewares) {
