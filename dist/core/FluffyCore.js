@@ -33,11 +33,11 @@ class FluffyCore {
                 let result;
                 try {
                     for (const middleware of pipeline.middlewares) {
-                        msg = await middleware(msg);
+                        await middleware(msg);
                     }
-                    msg = await pipeline.controller(msg);
+                    await pipeline.controller(msg);
                     for (const postware of pipeline.postware) {
-                        msg = await postware(msg);
+                        await postware(msg);
                     }
                     result = {
                         ...msg,
@@ -49,7 +49,11 @@ class FluffyCore {
                     if (this.enableLog)
                         console.error(e);
                     if (this.errorProcessor) {
-                        result = await this.errorProcessor({ msg, e });
+                        await this.errorProcessor({ msg, e });
+                        result = {
+                            ...msg,
+                            isResponse: true,
+                        };
                     }
                     else {
                         if (this.enableLog)

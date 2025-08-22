@@ -18,9 +18,9 @@ export default class FluffyCore {
 
     registerRoute({ ...args }:
         { topic: string
-        middlewares: Array<ControllerNode> | undefined
+        middlewares: Array<ControllerNode> | undefined | null
         controller: ControllerNode
-        postware: Array<{ controller: ControllerNode, priority: number | undefined }> | undefined }): void {
+        postware: Array<{ controller: ControllerNode, priority: number | undefined | null }> | undefined | null }): void {
         const postwares = args.postware ?
             args.postware.sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)).map((c) => c.controller)
             : []
@@ -45,11 +45,11 @@ export default class FluffyCore {
                 let result: Message;
                 try {
                     for (const middleware of pipeline.middlewares) {
-                        msg = await middleware(msg)
+                        await middleware(msg)
                     }
-                    msg = await pipeline.controller(msg)
+                    await pipeline.controller(msg)
                     for (const postware of pipeline.postware) {
-                        msg = await postware(msg)
+                        await postware(msg)
                     }
                     result = {
                         ...msg,
@@ -59,7 +59,11 @@ export default class FluffyCore {
                 } catch (e) {
                     if (this.enableLog) console.error(e)
                     if (this.errorProcessor) {
-                        result = await this.errorProcessor({ msg, e })
+                        await this.errorProcessor({ msg, e })
+                        result = {
+                            ...msg,
+                            isResponse: true,
+                        }
                     } else {
                         if (this.enableLog) console.warn('Consider using custom error controller, providing full error to a client can be dangerous to data privacy')
                         result = {

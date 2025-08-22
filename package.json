@@ -1,6 +1,6 @@
 {
   "name": "fluffy-core",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A library for implementing microservice architecture fast and easy",
   "main": "./dist/main.js",
   "module": "./dist/main.js",
@@ -13,22 +13,16 @@
   "types": "./types/index.d.ts",
   "devDependencies": {
     "@types/uuid": "^9.0.7",
-    "@types/websocket": "^1.0.10",
     "@types/ws": "^8.5.10",
     "typescript": "^5.3.3",
-    "uuid": "^9.0.1",
-    "websocket": "^1.0.34",
-    "ws": "^8.15.1"
+    "uuid": "^9.0.1"
   },
   "dependencies": {
     "@types/uuid": "^9.0.7",
-    "@types/websocket": "^1.0.10",
     "@types/ws": "^8.5.10",
     "nats": "^2.29.3",
     "typescript": "^5.3.3",
-    "uuid": "^9.0.1",
-    "websocket": "^1.0.34",
-    "ws": "^8.15.1"
+    "uuid": "^9.0.1"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
