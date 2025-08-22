@@ -69,7 +69,7 @@ export default class FluffyCore {
                         result = {
                             ...msg,
                             isResponse: true,
-                            resp: e,
+                            resp: JSON.stringify(e),
                             isError: true
                         }
                     }

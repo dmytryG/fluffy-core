@@ -54,7 +54,7 @@ export class NATSProvider implements IProvider {
             if (this.enableLog) console.error("No reply field found");
             return
         }
-        await this.publish(m.reply, m)
+        await this.publish(m.reply, message)
     }
 
     async makeRequest<T = any>(subject: string, message: T): Promise<T> {
