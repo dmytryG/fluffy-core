@@ -1,6 +1,6 @@
 {
   "name": "fluffy-core",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "A library for implementing microservice architecture fast and easy",
   "main": "./dist/main.js",
   "module": "./dist/main.js",
@@ -12,6 +12,7 @@
   "license": "ISC",
   "types": "./types/index.d.ts",
   "devDependencies": {
+    "@types/amqplib": "^0.10.7",
     "@types/uuid": "^9.0.7",
     "@types/ws": "^8.5.10",
     "typescript": "^5.3.3",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@types/uuid": "^9.0.7",
     "@types/ws": "^8.5.10",
+    "amqplib": "^0.10.8",
     "kafkajs": "^2.2.4",
     "nats": "^2.29.3",
     "typescript": "^5.3.3",
