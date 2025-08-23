@@ -3,6 +3,7 @@ import {Message} from "./types/Message";
 import FluffyCore from "./core/FluffyCore";
 import {IProvider} from "./types/providers/IProvider";
 import {NATSProvider} from "./types/providers/NATSProvider";
+import {KafkaProvider} from "./types/providers/KafkaProvider";
 import {ControllerNode} from "./types/ControllerNode";
 import {ErrorControllerNode} from "./types/ErrorControllerNode";
 import {Pipeline} from "./types/Pipeline";
@@ -12,6 +13,7 @@ export {
     APIError,
     IProvider,
     NATSProvider,
+    KafkaProvider,
     Message,
     ControllerNode,
     ErrorControllerNode,
