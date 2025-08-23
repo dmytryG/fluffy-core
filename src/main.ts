@@ -5,6 +5,7 @@ import {IProvider} from "./types/providers/IProvider";
 import {NATSProvider} from "./types/providers/NATSProvider";
 import {KafkaProvider} from "./types/providers/KafkaProvider";
 import {RabbitMQProvider} from "./types/providers/RabbitMQProvider";
+import {RedisStreamsProvider} from "./types/providers/RedisStreamsProvider";
 import {ControllerNode} from "./types/ControllerNode";
 import {ErrorControllerNode} from "./types/ErrorControllerNode";
 import {Pipeline} from "./types/Pipeline";
@@ -16,6 +17,7 @@ export {
     NATSProvider,
     KafkaProvider,
     RabbitMQProvider,
+    RedisStreamsProvider,
     Message,
     ControllerNode,
     ErrorControllerNode,
