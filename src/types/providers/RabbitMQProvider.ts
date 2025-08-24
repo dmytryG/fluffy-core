@@ -44,8 +44,8 @@ export class RabbitMQProvider implements IProvider {
             this.responseQueue,
             (rawMsg) => {
                 if (!rawMsg) return;
-                const corrId = rawMsg.properties.correlationId;
                 const decoded = JSON.parse(rawMsg.content.toString()) as Message;
+                const corrId = decoded?.id;
 
                 if (corrId && this.pendingRequests.has(corrId)) {
                     const handler = this.pendingRequests.get(corrId)!;
@@ -117,6 +117,7 @@ export class RabbitMQProvider implements IProvider {
 
     async makeRequest(topic: string, message: Message, timeout = 5000): Promise<Message> {
         const correlationId = message.id;
+        message = {...message, metadata: {...message.metadata, replyTo: this.responseQueue}};
 
         return new Promise<Message>((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -129,10 +130,6 @@ export class RabbitMQProvider implements IProvider {
             this.channel.sendToQueue(
                 topic,
                 Buffer.from(JSON.stringify(message)),
-                {
-                    correlationId,
-                    replyTo: this.responseQueue, // встроенная очередь
-                }
             );
         });
     }

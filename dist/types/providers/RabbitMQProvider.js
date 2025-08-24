@@ -28,8 +28,8 @@ class RabbitMQProvider {
         await this.channel.consume(this.responseQueue, (rawMsg) => {
             if (!rawMsg)
                 return;
-            const corrId = rawMsg.properties.correlationId;
             const decoded = JSON.parse(rawMsg.content.toString());
+            const corrId = decoded?.id;
             if (corrId && this.pendingRequests.has(corrId)) {
                 const handler = this.pendingRequests.get(corrId);
                 handler.resolve(decoded);
@@ -90,16 +90,14 @@ class RabbitMQProvider {
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
+        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseQueue } };
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 this.pendingRequests.delete(correlationId);
                 reject(new Error(`RabbitMQ request timed out for ${topic}`));
             }, timeout);
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
-            this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)), {
-                correlationId,
-                replyTo: this.responseQueue, // встроенная очередь
-            });
+            this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)));
         });
     }
     setEnableLog(enable) {
