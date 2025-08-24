@@ -103,7 +103,10 @@ export class RedisStreamsProvider implements IProvider {
     }
 
     async reply(args: { topic: string, message: Message }): Promise<void> {
-        const responseTopic = `response_${args.topic}`;
+        const responseTopic = args.message?.metadata?.replyTo;
+        if (!responseTopic) {
+            throw new Error("Reply to topic not found in message metadata");
+        }
         await this.publish(responseTopic, args.message);
     }
 
@@ -113,6 +116,7 @@ export class RedisStreamsProvider implements IProvider {
         timeout = 5000
     ): Promise<Message> {
         const correlationId = message.id;
+        message = {...message, metadata: {...message.metadata, replyTo: this.responseTopic}};
 
         if (!this.wasResponseQueueCreated) {
             // Подписка на ответный стрим
