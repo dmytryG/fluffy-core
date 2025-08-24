@@ -19,7 +19,7 @@ export class RedisStreamsProvider implements IProvider {
     // (correlationId -> handler)
     private pendingRequests: Map<string, PendingHandler> = new Map();
 
-    private isConsuming: boolean = false;
+    private isConsuming: boolean = true;
     private responseTopic: string;
 
     constructor(
@@ -49,7 +49,7 @@ export class RedisStreamsProvider implements IProvider {
     }
 
     async publish(topic: string, message: Message): Promise<void> {
-        if (this.enableLog) console.log(`[RSProvider] Publishing to ${message?.metadata?.replyTo}`, message)
+        if (this.enableLog) console.log(`[RSProvider] Publishing to ${topic}`, message)
         await this.producer.xadd(topic, "*", "value", JSON.stringify(message));
     }
 
@@ -62,10 +62,7 @@ export class RedisStreamsProvider implements IProvider {
             await this.producer.xgroup("CREATE", topic, this.groupId, "$", "MKSTREAM").catch(() => {
             });
 
-            if (!this.isConsuming) {
-                this.isConsuming = true;
-                this.consumeLoop(topic, handler);
-            }
+            this.consumeLoop(topic, handler);
         } catch (err) {
             if (this.enableLog) console.error(`[Redis] Subscribe error:`, err);
         }
