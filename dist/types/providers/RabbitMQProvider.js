@@ -24,7 +24,9 @@ class RabbitMQProvider {
         this.channel = await this.connection.createChannel();
         // Ограничим нагрузку на одного потребителя
         this.channel.prefetch(10);
-        await this.channel.assertQueue(this.responseQueue, { durable: false });
+        if (!this.wasResponseQueueCreated)
+            await this.channel.assertQueue(this.responseQueue, { durable: false });
+        this.wasResponseQueueCreated = true;
         await this.channel.consume(this.responseQueue, (rawMsg) => {
             if (!rawMsg)
                 return;
@@ -75,13 +77,13 @@ class RabbitMQProvider {
             try {
                 const decoded = JSON.parse(rawMsg.content.toString());
                 await handler(decoded, rawMsg);
-                this.channel.ack(rawMsg);
+                // this.channel.ack(rawMsg);
             }
             catch (err) {
                 if (this.enableLog)
                     console.error("[RabbitMQ] Error in subscription handler:", err);
             }
-        });
+        }, { noAck: true });
     }
     async reply(args) {
         const responseQueue = args.message?.metadata?.replyTo;
