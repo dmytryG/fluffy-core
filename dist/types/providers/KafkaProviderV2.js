@@ -89,11 +89,15 @@ class KafkaProviderV2 {
         await this.consumer.subscribe({ topic, fromBeginning: false });
     }
     async reply(args) {
-        const responseTopic = `response_${args.topic}`;
+        const responseTopic = args.message?.metadata?.replyTo;
+        if (!responseTopic) {
+            throw new Error("Reply to topic not found in message metadata");
+        }
         await this.publish(responseTopic, args.message);
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
+        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseTopic } };
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
                 this.pendingRequests.delete(correlationId);

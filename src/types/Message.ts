@@ -5,4 +5,5 @@ export interface Message {
     resp: any
     isError: boolean | null | undefined
     safeMetadata: any // Will be removed before sending
+    metadata?: any | undefined
 }

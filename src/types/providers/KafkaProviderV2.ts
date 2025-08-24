@@ -113,12 +113,14 @@ export class KafkaProviderV2 implements IProvider {
     }
 
     async reply(args: { topic: string; message: Message }): Promise<void> {
-        const responseTopic = `response_${args.topic}`;
+        const responseTopic = args.message?.metadata?.replyTo;
+        if (!responseTopic) { throw new Error("Reply to topic not found in message metadata"); }
         await this.publish(responseTopic, args.message);
     }
 
     async makeRequest(topic: string, message: Message, timeout = 5000): Promise<Message> {
         const correlationId = message.id;
+        message = {...message, metadata: {...message.metadata, replyTo: this.responseTopic}};
 
         return new Promise<Message>(async (resolve, reject) => {
             const timer = setTimeout(() => {
