@@ -45,7 +45,7 @@ export class RabbitMQProvider implements IProvider {
             (rawMsg) => {
                 if (!rawMsg) return;
                 const decoded = JSON.parse(rawMsg.content.toString()) as Message;
-                if (this.enableLog) console.log(`[RabbitMQ] Received request:`, decoded);
+                if (this.enableLog) console.log(`[RabbitMQ] Received response:`, decoded);
                 const corrId = decoded?.id;
 
                 if (corrId && this.pendingRequests.has(corrId)) {
@@ -105,6 +105,7 @@ export class RabbitMQProvider implements IProvider {
 
     async reply(args: { topic: string; message: Message }): Promise<void> {
         const responseQueue = args.message?.metadata?.replyTo;
+        if (this.enableLog) console.log(`[RabbitMQ] Replying to ${args.topic} with message:`, args.message);
         if (!responseQueue) {
             throw new Error("ReplyTo queue not found in message metadata");
         }
