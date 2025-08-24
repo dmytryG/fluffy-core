@@ -35,37 +35,29 @@ export class RabbitMQProvider implements IProvider {
         this.connection = await amqp.connect(this.url);
         this.channel = await this.connection.createChannel();
 
-        // создаём очередь для RPC ответов
-        await this.channel.assertQueue(this.responseQueue, { exclusive: true });
+        // Ограничим нагрузку на одного потребителя
+        this.channel.prefetch(10);
 
-        // слушаем её
-        await this.channel.consume(this.responseQueue, async (rawMsg) => {
-            if (!rawMsg) return;
-            try {
-                const decoded = JSON.parse(rawMsg.content.toString()) as Message;
+        // Используем встроенную очередь RabbitMQ для RPC (быстрее, чем создавать свою)
+        this.responseQueue = "amq.rabbitmq.reply-to";
+
+        // слушаем встроенную RPC очередь
+        await this.channel.consume(
+            this.responseQueue,
+            (rawMsg) => {
+                if (!rawMsg) return;
                 const corrId = rawMsg.properties.correlationId;
+                const decoded = JSON.parse(rawMsg.content.toString()) as Message;
 
-                // 1. RPC response
                 if (corrId && this.pendingRequests.has(corrId)) {
                     const handler = this.pendingRequests.get(corrId)!;
                     handler.resolve(decoded);
                     clearTimeout(handler.timer);
                     this.pendingRequests.delete(corrId);
-                    this.channel.ack(rawMsg);
-                    return;
                 }
-
-                // 2. Обычный хендлер по queue/topic
-                const handler = this.topicHandlers.get(rawMsg.fields.routingKey);
-                if (handler) {
-                    await handler(decoded, rawMsg);
-                }
-
-                this.channel.ack(rawMsg);
-            } catch (err) {
-                if (this.enableLog) console.error("[RabbitMQ] Error in message handler:", err);
-            }
-        });
+            },
+            { noAck: true } // для reply-to не нужен ack
+        );
 
         if (this.enableLog) console.log(`[RabbitMQ] Connected: ${this.url}`);
     }
@@ -85,7 +77,6 @@ export class RabbitMQProvider implements IProvider {
             if (this.enableLog) console.error("RabbitMQ channel not initialized");
             return;
         }
-        await this.channel.assertQueue(topic, { durable: false });
         this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)));
     }
 
@@ -128,9 +119,8 @@ export class RabbitMQProvider implements IProvider {
 
     async makeRequest(topic: string, message: Message, timeout = 5000): Promise<Message> {
         const correlationId = message.id;
-        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseQueue } };
 
-        return new Promise<Message>(async (resolve, reject) => {
+        return new Promise<Message>((resolve, reject) => {
             const timer = setTimeout(() => {
                 this.pendingRequests.delete(correlationId);
                 reject(new Error(`RabbitMQ request timed out for ${topic}`));
@@ -138,14 +128,12 @@ export class RabbitMQProvider implements IProvider {
 
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
 
-            await this.channel.assertQueue(topic, { durable: false });
-
             this.channel.sendToQueue(
                 topic,
                 Buffer.from(JSON.stringify(message)),
                 {
                     correlationId,
-                    replyTo: this.responseQueue,
+                    replyTo: this.responseQueue, // встроенная очередь
                 }
             );
         });

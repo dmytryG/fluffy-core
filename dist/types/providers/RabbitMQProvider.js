@@ -21,36 +21,24 @@ class RabbitMQProvider {
     async connect() {
         this.connection = await amqplib_1.default.connect(this.url);
         this.channel = await this.connection.createChannel();
-        // создаём очередь для RPC ответов
-        await this.channel.assertQueue(this.responseQueue, { exclusive: true });
-        // слушаем её
-        await this.channel.consume(this.responseQueue, async (rawMsg) => {
+        // Ограничим нагрузку на одного потребителя
+        this.channel.prefetch(10);
+        // Используем встроенную очередь RabbitMQ для RPC (быстрее, чем создавать свою)
+        this.responseQueue = "amq.rabbitmq.reply-to";
+        // слушаем встроенную RPC очередь
+        await this.channel.consume(this.responseQueue, (rawMsg) => {
             if (!rawMsg)
                 return;
-            try {
-                const decoded = JSON.parse(rawMsg.content.toString());
-                const corrId = rawMsg.properties.correlationId;
-                // 1. RPC response
-                if (corrId && this.pendingRequests.has(corrId)) {
-                    const handler = this.pendingRequests.get(corrId);
-                    handler.resolve(decoded);
-                    clearTimeout(handler.timer);
-                    this.pendingRequests.delete(corrId);
-                    this.channel.ack(rawMsg);
-                    return;
-                }
-                // 2. Обычный хендлер по queue/topic
-                const handler = this.topicHandlers.get(rawMsg.fields.routingKey);
-                if (handler) {
-                    await handler(decoded, rawMsg);
-                }
-                this.channel.ack(rawMsg);
+            const corrId = rawMsg.properties.correlationId;
+            const decoded = JSON.parse(rawMsg.content.toString());
+            if (corrId && this.pendingRequests.has(corrId)) {
+                const handler = this.pendingRequests.get(corrId);
+                handler.resolve(decoded);
+                clearTimeout(handler.timer);
+                this.pendingRequests.delete(corrId);
             }
-            catch (err) {
-                if (this.enableLog)
-                    console.error("[RabbitMQ] Error in message handler:", err);
-            }
-        });
+        }, { noAck: true } // для reply-to не нужен ack
+        );
         if (this.enableLog)
             console.log(`[RabbitMQ] Connected: ${this.url}`);
     }
@@ -70,7 +58,6 @@ class RabbitMQProvider {
                 console.error("RabbitMQ channel not initialized");
             return;
         }
-        await this.channel.assertQueue(topic, { durable: false });
         this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)));
     }
     async subscribe(topic, handler) {
@@ -104,17 +91,15 @@ class RabbitMQProvider {
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
-        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseQueue } };
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 this.pendingRequests.delete(correlationId);
                 reject(new Error(`RabbitMQ request timed out for ${topic}`));
             }, timeout);
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
-            await this.channel.assertQueue(topic, { durable: false });
             this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)), {
                 correlationId,
-                replyTo: this.responseQueue,
+                replyTo: this.responseQueue, // встроенная очередь
             });
         });
     }
