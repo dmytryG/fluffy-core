@@ -49,6 +49,7 @@ export class RedisStreamsProvider implements IProvider {
     }
 
     async publish(topic: string, message: Message): Promise<void> {
+        if (this.enableLog) console.log(`[RSProvider] Publishing to ${message?.metadata?.replyTo}`, message)
         await this.producer.xadd(topic, "*", "value", JSON.stringify(message));
     }
 
@@ -104,6 +105,7 @@ export class RedisStreamsProvider implements IProvider {
 
     async reply(args: { topic: string, message: Message }): Promise<void> {
         const responseTopic = args.message?.metadata?.replyTo;
+        if (this.enableLog) console.log(`[RSProvider] Replying to ${args.message?.metadata?.replyTo}`)
         if (!responseTopic) {
             throw new Error("Reply to topic not found in message metadata");
         }
