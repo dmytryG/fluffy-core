@@ -23,9 +23,6 @@ class RabbitMQProvider {
         this.channel = await this.connection.createChannel();
         // Ограничим нагрузку на одного потребителя
         this.channel.prefetch(10);
-        // Используем встроенную очередь RabbitMQ для RPC (быстрее, чем создавать свою)
-        this.responseQueue = "amq.rabbitmq.reply-to";
-        // слушаем встроенную RPC очередь
         await this.channel.consume(this.responseQueue, (rawMsg) => {
             if (!rawMsg)
                 return;
