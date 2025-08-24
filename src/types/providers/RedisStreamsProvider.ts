@@ -73,29 +73,26 @@ export class RedisStreamsProvider implements IProvider {
 
     private async consumeLoop(topic: string, handler: (msg: Message, raw: any) => Promise<void> | void) {
         if (this.enableLog) console.log(`[RSProvider] Subscribing to ${topic}`)
+        let lastId = "0"; // читаем всё, начиная с начала
+
         while (this.isConsuming) {
             try {
-                const streams = await this.consumer.call(
-                    "XREADGROUP",
-                    "GROUP", this.groupId, this.consumerId,
-                    "BLOCK", "5000",
-                    "COUNT", "10",
+                const streams = await this.consumer.xread(
+                    // @ts-ignore
+                    "BLOCK", 5000,
+                    "COUNT", 10,
                     "STREAMS", topic,
-                    ">"
+                    lastId === "0" ? "0" : lastId
                 ) as [string, [string, string[]][]][] | null;
 
                 if (streams) {
                     for (const [, messages] of streams) {
                         for (const [id, fields] of messages) {
-                            try {
-                                const rawValue = fields[1];
-                                const decoded = JSON.parse(rawValue) as Message;
-                                if (this.enableLog) console.log(`[RSProvider] Got message by ${topic}`, decoded)
-                                await handler(decoded, {id, fields});
-                                await this.consumer.xack(topic, this.groupId, id);
-                            } catch (err) {
-                                if (this.enableLog) console.error(`[Redis] Error handling message on ${topic}:`, err);
-                            }
+                            const rawValue = fields[1];
+                            const decoded = JSON.parse(rawValue) as Message;
+                            if (this.enableLog) console.log(`[RSProvider] Got message by ${topic}`, decoded);
+                            await handler(decoded, {id, fields});
+                            lastId = id;
                         }
                     }
                 }
