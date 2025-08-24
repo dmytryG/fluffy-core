@@ -1,6 +1,6 @@
 {
   "name": "fluffy-core",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "A library for implementing microservice architecture fast and easy",
   "main": "./dist/main.js",
   "module": "./dist/main.js",

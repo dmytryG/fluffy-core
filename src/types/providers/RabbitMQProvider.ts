@@ -1,6 +1,7 @@
 import amqp, {Connection, Channel, ConsumeMessage, ChannelModel} from "amqplib";
 import { IProvider } from "../../types/providers/IProvider";
 import { Message } from "../../types/Message";
+import {v4 as uuidv4} from "uuid";
 
 type PendingHandler = {
     resolve: (value: any) => void;
@@ -13,6 +14,7 @@ export class RabbitMQProvider implements IProvider {
     private channel!: Channel;
     public enableLog: boolean = true;
     private responseQueue: string;
+    private clientId: string;
 
     // (correlationId -> handler)
     private pendingRequests: Map<string, PendingHandler> = new Map();
@@ -22,8 +24,8 @@ export class RabbitMQProvider implements IProvider {
 
     constructor(
         private readonly url: string,     // пример: amqp://guest:guest@localhost:5672
-        private readonly clientId: string
     ) {
+        this.clientId = `fc-${uuidv4()}`
         this.responseQueue = `response_${this.clientId}`;
     }
 

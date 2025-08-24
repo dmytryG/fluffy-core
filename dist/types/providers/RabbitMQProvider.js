@@ -5,16 +5,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RabbitMQProvider = void 0;
 const amqplib_1 = __importDefault(require("amqplib"));
+const uuid_1 = require("uuid");
 class RabbitMQProvider {
-    constructor(url, // пример: amqp://guest:guest@localhost:5672
-    clientId) {
+    constructor(url) {
         this.url = url;
-        this.clientId = clientId;
         this.enableLog = true;
         // (correlationId -> handler)
         this.pendingRequests = new Map();
         // topic -> handler
         this.topicHandlers = new Map();
+        this.clientId = `fc-${(0, uuid_1.v4)()}`;
         this.responseQueue = `response_${this.clientId}`;
     }
     async ready() { }
