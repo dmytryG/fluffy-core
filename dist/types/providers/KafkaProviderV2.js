@@ -8,7 +8,7 @@ class KafkaProviderV2 {
         this.clientId = clientId;
         this.groupId = groupId;
         this.enableLog = true;
-        // responseTopic -> (correlationId -> handler)
+        // (correlationId -> handler)
         this.pendingRequests = new Map();
         // обычные подписки: topic -> handler
         this.topicHandlers = new Map();
@@ -17,12 +17,14 @@ class KafkaProviderV2 {
             brokers: this.brokers,
             logLevel: this.enableLog ? kafkajs_1.logLevel.INFO : kafkajs_1.logLevel.NOTHING,
         });
+        this.responseTopic = `response_${this.clientId}`;
     }
     async connect() {
         this.producer = this.kafka.producer();
         this.consumer = this.kafka.consumer({ groupId: this.groupId });
         await this.producer.connect();
         await this.consumer.connect();
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
         // единый consumer.run
         await this.consumer.run({
             autoCommit: false, // в RPC топиках коммиты не нужны
@@ -31,13 +33,11 @@ class KafkaProviderV2 {
                     const decoded = JSON.parse(payload.message.value?.toString() || "{}");
                     const topic = payload.topic;
                     // 1. Обработка RPC response
-                    const pending = this.pendingRequests.get(topic);
-                    if (pending) {
-                        const handler = pending.get(decoded.id);
-                        if (handler) {
-                            handler.resolve(decoded);
-                            clearTimeout(handler.timer);
-                            pending.delete(decoded.id);
+                    const rpcHandler = this.pendingRequests.get(decoded.id);
+                    if (rpcHandler) {
+                        if (rpcHandler) {
+                            rpcHandler.resolve(decoded);
+                            clearTimeout(rpcHandler.timer);
                             return;
                         }
                     }
@@ -92,20 +92,12 @@ class KafkaProviderV2 {
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
-        const responseTopic = `response_${topic}`;
-        // подписываемся на responseTopic, если еще нет
-        if (!this.pendingRequests.has(responseTopic)) {
-            this.pendingRequests.set(responseTopic, new Map());
-            await this.consumer.subscribe({ topic: responseTopic, fromBeginning: false });
-        }
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
-                const topicHandlers = this.pendingRequests.get(responseTopic);
-                if (topicHandlers)
-                    topicHandlers.delete(correlationId);
+                this.pendingRequests.delete(correlationId);
                 reject(new Error(`Kafka request timed out for ${topic}`));
             }, timeout);
-            this.pendingRequests.get(responseTopic).set(correlationId, { resolve, reject, timer });
+            this.pendingRequests.set(correlationId, { resolve, reject, timer });
             // Отправляем запрос
             await this.publish(topic, message);
         });

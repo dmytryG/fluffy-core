@@ -13,9 +13,10 @@ export class KafkaProviderV2 implements IProvider {
     private producer!: Producer;
     private consumer!: Consumer;
     public enableLog: boolean = true;
+    private responseTopic: string;
 
-    // responseTopic -> (correlationId -> handler)
-    private pendingRequests: Map<string, Map<string, PendingHandler>> = new Map();
+    // (correlationId -> handler)
+    private pendingRequests: Map<string, PendingHandler> = new Map();
 
     // обычные подписки: topic -> handler
     private topicHandlers: Map<string, (msg: Message, raw: EachMessagePayload) => Promise<void> | void> = new Map();
@@ -30,6 +31,7 @@ export class KafkaProviderV2 implements IProvider {
             brokers: this.brokers,
             logLevel: this.enableLog ? logLevel.INFO : logLevel.NOTHING,
         });
+        this.responseTopic = `response_${this.clientId}`;
     }
 
     async connect(): Promise<void> {
@@ -38,6 +40,8 @@ export class KafkaProviderV2 implements IProvider {
 
         await this.producer.connect();
         await this.consumer.connect();
+
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
 
         // единый consumer.run
         await this.consumer.run({
@@ -48,13 +52,11 @@ export class KafkaProviderV2 implements IProvider {
                     const topic = payload.topic;
 
                     // 1. Обработка RPC response
-                    const pending = this.pendingRequests.get(topic);
-                    if (pending) {
-                        const handler = pending.get(decoded.id);
-                        if (handler) {
-                            handler.resolve(decoded);
-                            clearTimeout(handler.timer);
-                            pending.delete(decoded.id);
+                    const rpcHandler = this.pendingRequests.get(decoded.id);
+                    if (rpcHandler) {
+                        if (rpcHandler) {
+                            rpcHandler.resolve(decoded);
+                            clearTimeout(rpcHandler.timer);
                             return;
                         }
                     }
@@ -115,22 +117,14 @@ export class KafkaProviderV2 implements IProvider {
 
     async makeRequest(topic: string, message: Message, timeout = 5000): Promise<Message> {
         const correlationId = message.id;
-        const responseTopic = `response_${topic}`;
-
-        // подписываемся на responseTopic, если еще нет
-        if (!this.pendingRequests.has(responseTopic)) {
-            this.pendingRequests.set(responseTopic, new Map());
-            await this.consumer.subscribe({ topic: responseTopic, fromBeginning: false });
-        }
 
         return new Promise<Message>(async (resolve, reject) => {
             const timer = setTimeout(() => {
-                const topicHandlers = this.pendingRequests.get(responseTopic);
-                if (topicHandlers) topicHandlers.delete(correlationId);
+                this.pendingRequests.delete(correlationId);
                 reject(new Error(`Kafka request timed out for ${topic}`));
             }, timeout);
 
-            this.pendingRequests.get(responseTopic)!.set(correlationId, { resolve, reject, timer });
+            this.pendingRequests.set(correlationId, { resolve, reject, timer });
 
             // Отправляем запрос
             await this.publish(topic, message);
