@@ -121,7 +121,7 @@ export class KafkaProvider implements IProvider {
                             topicHandlers.delete(correlationId);
 
                             if (topicHandlers.size === 0) {
-                                this.pendingRequests.delete(responseTopic);
+                                // this.pendingRequests.delete(responseTopic);
                                 if (this.enableLog) console.log(`[Kafka] No more pending handlers for ${responseTopic}`);
                                 // тут можно вызвать unsubscribe, но у KafkaJS нет удобного метода
                             }
