@@ -10,6 +10,7 @@ class RabbitMQProvider {
     constructor(url) {
         this.url = url;
         this.enableLog = true;
+        this.wasResponseQueueCreated = false;
         // (correlationId -> handler)
         this.pendingRequests = new Map();
         // topic -> handler
@@ -23,6 +24,7 @@ class RabbitMQProvider {
         this.channel = await this.connection.createChannel();
         // Ограничим нагрузку на одного потребителя
         this.channel.prefetch(10);
+        await this.channel.assertQueue(this.responseQueue, { durable: false });
         await this.channel.consume(this.responseQueue, (rawMsg) => {
             if (!rawMsg)
                 return;

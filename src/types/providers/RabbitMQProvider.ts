@@ -15,6 +15,7 @@ export class RabbitMQProvider implements IProvider {
     public enableLog: boolean = true;
     private responseQueue: string;
     private clientId: string;
+    private wasResponseQueueCreated: boolean = false;
 
     // (correlationId -> handler)
     private pendingRequests: Map<string, PendingHandler> = new Map();
@@ -38,6 +39,7 @@ export class RabbitMQProvider implements IProvider {
         // Ограничим нагрузку на одного потребителя
         this.channel.prefetch(10);
 
+        await this.channel.assertQueue(this.responseQueue, { durable: false });
         await this.channel.consume(
             this.responseQueue,
             (rawMsg) => {
