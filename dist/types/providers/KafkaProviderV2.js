@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.KafkaProvider = void 0;
+exports.KafkaProviderV2 = void 0;
 const kafkajs_1 = require("kafkajs");
-class KafkaProvider {
+class KafkaProviderV2 {
     constructor(brokers, // список брокеров
     clientId, // идентификатор клиента
     groupId // groupId для consumer
@@ -119,4 +119,4 @@ class KafkaProvider {
         this.enableLog = enable;
     }
 }
-exports.KafkaProvider = KafkaProvider;
+exports.KafkaProviderV2 = KafkaProviderV2;

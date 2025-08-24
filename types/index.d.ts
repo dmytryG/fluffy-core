@@ -4,6 +4,7 @@ import FluffyCore from "../src/core/FluffyCore";
 import {IProvider} from "../src/types/providers/IProvider";
 import {NATSProvider} from "../src/types/providers/NATSProvider";
 import {KafkaProvider} from "../src/types/providers/KafkaProvider";
+import {KafkaProviderV2} from "../src/types/providers/KafkaProviderV2";
 import {RabbitMQProvider} from "../src/types/providers/RabbitMQProvider";
 import {RedisStreamsProvider} from "../src/types/providers/RedisStreamsProvider";
 import {ControllerNode} from "../src/types/ControllerNode";
@@ -16,6 +17,7 @@ export {
     IProvider,
     NATSProvider,
     KafkaProvider,
+    KafkaProviderV2,
     RabbitMQProvider,
     RedisStreamsProvider,
     Message,

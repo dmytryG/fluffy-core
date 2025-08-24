@@ -8,7 +8,7 @@ type PendingHandler = {
     timer: NodeJS.Timeout;
 };
 
-export class KafkaProvider implements IProvider {
+export class KafkaProviderV2 implements IProvider {
     private kafka: Kafka;
     private producer!: Producer;
     private consumer!: Consumer;

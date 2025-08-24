@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RabbitMQProvider = exports.KafkaProvider = exports.NATSProvider = exports.APIError = exports.FluffyCore = void 0;
+exports.RedisStreamsProvider = exports.RabbitMQProvider = exports.KafkaProviderV2 = exports.KafkaProvider = exports.NATSProvider = exports.APIError = exports.FluffyCore = void 0;
 const APIError_1 = __importDefault(require("./types/APIError"));
 exports.APIError = APIError_1.default;
 const FluffyCore_1 = __importDefault(require("./core/FluffyCore"));
@@ -12,5 +12,9 @@ const NATSProvider_1 = require("./types/providers/NATSProvider");
 Object.defineProperty(exports, "NATSProvider", { enumerable: true, get: function () { return NATSProvider_1.NATSProvider; } });
 const KafkaProvider_1 = require("./types/providers/KafkaProvider");
 Object.defineProperty(exports, "KafkaProvider", { enumerable: true, get: function () { return KafkaProvider_1.KafkaProvider; } });
+const KafkaProviderV2_1 = require("./types/providers/KafkaProviderV2");
+Object.defineProperty(exports, "KafkaProviderV2", { enumerable: true, get: function () { return KafkaProviderV2_1.KafkaProviderV2; } });
 const RabbitMQProvider_1 = require("./types/providers/RabbitMQProvider");
 Object.defineProperty(exports, "RabbitMQProvider", { enumerable: true, get: function () { return RabbitMQProvider_1.RabbitMQProvider; } });
+const RedisStreamsProvider_1 = require("./types/providers/RedisStreamsProvider");
+Object.defineProperty(exports, "RedisStreamsProvider", { enumerable: true, get: function () { return RedisStreamsProvider_1.RedisStreamsProvider; } });
