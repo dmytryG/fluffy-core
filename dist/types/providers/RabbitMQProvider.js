@@ -30,7 +30,7 @@ class RabbitMQProvider {
                 return;
             const decoded = JSON.parse(rawMsg.content.toString());
             if (this.enableLog)
-                console.log(`[RabbitMQ] Received request:`, decoded);
+                console.log(`[RabbitMQ] Received response:`, decoded);
             const corrId = decoded?.id;
             if (corrId && this.pendingRequests.has(corrId)) {
                 const handler = this.pendingRequests.get(corrId);
@@ -85,6 +85,8 @@ class RabbitMQProvider {
     }
     async reply(args) {
         const responseQueue = args.message?.metadata?.replyTo;
+        if (this.enableLog)
+            console.log(`[RabbitMQ] Replying to ${args.topic} with message:`, args.message);
         if (!responseQueue) {
             throw new Error("ReplyTo queue not found in message metadata");
         }
