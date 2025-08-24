@@ -72,6 +72,7 @@ export class RedisStreamsProvider implements IProvider {
     }
 
     private async consumeLoop(topic: string, handler: (msg: Message, raw: any) => Promise<void> | void) {
+        if (this.enableLog) console.log(`[RSProvider] Subscribing to ${topic}`)
         while (this.isConsuming) {
             try {
                 const streams = await this.consumer.call(
@@ -89,6 +90,7 @@ export class RedisStreamsProvider implements IProvider {
                             try {
                                 const rawValue = fields[1];
                                 const decoded = JSON.parse(rawValue) as Message;
+                                if (this.enableLog) console.log(`[RSProvider] Got message by ${topic}`, decoded)
                                 await handler(decoded, {id, fields});
                                 await this.consumer.xack(topic, this.groupId, id);
                             } catch (err) {
@@ -146,6 +148,7 @@ export class RedisStreamsProvider implements IProvider {
             }, timeout);
 
             this.pendingRequests.set(correlationId, {resolve, reject, timer});
+
 
             await this.publish(topic, message);
         });
