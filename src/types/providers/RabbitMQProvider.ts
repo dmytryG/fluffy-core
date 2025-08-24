@@ -45,6 +45,7 @@ export class RabbitMQProvider implements IProvider {
             (rawMsg) => {
                 if (!rawMsg) return;
                 const decoded = JSON.parse(rawMsg.content.toString()) as Message;
+                if (this.enableLog) console.log(`[RabbitMQ] Received request:`, decoded);
                 const corrId = decoded?.id;
 
                 if (corrId && this.pendingRequests.has(corrId)) {

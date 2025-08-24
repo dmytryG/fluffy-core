@@ -29,6 +29,8 @@ class RabbitMQProvider {
             if (!rawMsg)
                 return;
             const decoded = JSON.parse(rawMsg.content.toString());
+            if (this.enableLog)
+                console.log(`[RabbitMQ] Received request:`, decoded);
             const corrId = decoded?.id;
             if (corrId && this.pendingRequests.has(corrId)) {
                 const handler = this.pendingRequests.get(corrId);
