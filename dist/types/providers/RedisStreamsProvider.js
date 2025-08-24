@@ -1,123 +1,115 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisStreamsProvider = void 0;
-const redis_1 = require("redis");
+const ioredis_1 = __importDefault(require("ioredis"));
 const uuid_1 = require("uuid");
 class RedisStreamsProvider {
-    constructor(host, port, groupId, consumerId) {
+    constructor(host, port, groupId, // consumer group
+    consumerId // consumer name inside group
+    ) {
         this.host = host;
         this.port = port;
+        this.groupId = groupId;
+        this.consumerId = consumerId;
         this.enableLog = true;
+        this.wasResponseQueueCreated = false;
+        // (correlationId -> handler)
         this.pendingRequests = new Map();
+        this.isConsuming = false;
         this.clientId = `fc-${(0, uuid_1.v4)()}`;
-        this.responseStream = `response_${this.clientId}`;
-        this.groupId = groupId ?? `grp-${this.clientId}`;
-        this.consumerId = consumerId ?? this.clientId;
+        this.responseTopic = `response_${this.clientId}`;
     }
-    async ready() { }
+    async ready() {
+    }
     async connect() {
-        this.client = (0, redis_1.createClient)({
-            url: `redis://${this.host}:${this.port}`,
-        });
-        this.client.on("error", (err) => {
-            console.error("[Redis] Client error:", err);
-        });
-        await this.client.connect();
-        // Создадим consumer group для response stream
-        try {
-            await this.client.xGroupCreate(this.responseStream, this.groupId, "$", { MKSTREAM: true });
-        }
-        catch (err) {
-            if (!err.message.includes("BUSYGROUP")) {
-                throw err;
-            }
-        }
-        // Запустим обработчик ответов
-        this.consumeLoop(this.responseStream, async (decoded) => {
-            if (this.enableLog)
-                console.log(`[Redis] Received response:`, decoded);
-            const corrId = decoded?.id;
-            if (corrId && this.pendingRequests.has(corrId)) {
-                const handler = this.pendingRequests.get(corrId);
-                handler.resolve(decoded);
-                clearTimeout(handler.timer);
-                this.pendingRequests.delete(corrId);
-            }
-        });
+        this.producer = new ioredis_1.default({ host: this.host, port: this.port });
+        this.consumer = new ioredis_1.default({ host: this.host, port: this.port });
         if (this.enableLog)
-            console.log(`[Redis] Connected: ${this.host}:${this.port}`);
+            console.log(`[Redis] Connected to ${this.host}:${this.port}`);
     }
     async disconnect() {
-        if (this.client) {
-            await this.client.disconnect();
-        }
+        await this.producer.quit();
+        await this.consumer.quit();
         if (this.enableLog)
             console.log("[Redis] Disconnected");
     }
     async publish(topic, message) {
-        await this.client.xAdd(topic, "*", { data: JSON.stringify(message) });
+        await this.producer.xadd(topic, "*", "value", JSON.stringify(message));
     }
     async subscribe(topic, handler) {
-        // создаём группу для стрима
         try {
-            await this.client.xGroupCreate(topic, this.groupId, "$", { MKSTREAM: true });
+            // Создаем группу, если нет
+            await this.producer.xgroup("CREATE", topic, this.groupId, "$", "MKSTREAM").catch(() => {
+            });
+            if (!this.isConsuming) {
+                this.isConsuming = true;
+                this.consumeLoop(topic, handler);
+            }
         }
         catch (err) {
-            if (!err.message.includes("BUSYGROUP"))
-                throw err;
+            if (this.enableLog)
+                console.error(`[Redis] Subscribe error:`, err);
         }
-        this.consumeLoop(topic, async (decoded, raw) => {
-            try {
-                await handler(decoded, raw);
-            }
-            catch (err) {
-                if (this.enableLog)
-                    console.error("[Redis] Error in subscription handler:", err);
-            }
-        });
     }
-    async consumeLoop(stream, onMessage) {
-        (async () => {
-            while (true) {
-                const res = await this.client.xReadGroup(this.groupId, this.consumerId, [{ key: stream, id: ">" }], { COUNT: 10, BLOCK: 5000 });
-                if (!res)
-                    continue;
-                for (const streamRes of res) {
-                    for (const msg of streamRes.messages) {
-                        const raw = msg;
-                        const decoded = JSON.parse(msg.message.data);
-                        await onMessage(decoded, raw);
-                        await this.client.xAck(stream, this.groupId, msg.id);
+    async consumeLoop(topic, handler) {
+        while (this.isConsuming) {
+            try {
+                const streams = await this.consumer.call("XREADGROUP", "GROUP", this.groupId, this.consumerId, "BLOCK", "5000", "COUNT", "10", "STREAMS", topic, ">");
+                if (streams) {
+                    for (const [, messages] of streams) {
+                        for (const [id, fields] of messages) {
+                            try {
+                                const rawValue = fields[1];
+                                const decoded = JSON.parse(rawValue);
+                                await handler(decoded, { id, fields });
+                                await this.consumer.xack(topic, this.groupId, id);
+                            }
+                            catch (err) {
+                                if (this.enableLog)
+                                    console.error(`[Redis] Error handling message on ${topic}:`, err);
+                            }
+                        }
                     }
                 }
             }
-        })();
+            catch (err) {
+                if (this.enableLog)
+                    console.error(`[Redis] Consumer loop error:`, err);
+            }
+        }
     }
     async reply(args) {
-        const responseStream = args.message?.metadata?.replyTo;
-        if (!responseStream)
-            throw new Error("ReplyTo stream not found in message metadata");
-        if (this.enableLog) {
-            console.log(`[Redis] Replying to ${args.topic} with message:`, args.message);
-        }
-        await this.client.xAdd(responseStream, "*", { data: JSON.stringify(args.message) });
+        const responseTopic = `response_${args.topic}`;
+        await this.publish(responseTopic, args.message);
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
-        message = {
-            ...message,
-            metadata: { ...message.metadata, replyTo: this.responseStream },
-        };
+        if (!this.wasResponseQueueCreated) {
+            // Подписка на ответный стрим
+            await this.producer.xgroup("CREATE", this.responseTopic, this.groupId, "$", "MKSTREAM").catch(() => {
+            });
+            this.consumeLoop(this.responseTopic, async (decoded) => {
+                const correlationId = decoded.id;
+                const handler = this.pendingRequests.get(correlationId);
+                if (handler) {
+                    handler.resolve(decoded);
+                    clearTimeout(handler.timer);
+                    this.pendingRequests.delete(correlationId);
+                }
+            });
+            this.wasResponseQueueCreated = true;
+        }
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
-                this.pendingRequests.delete(correlationId);
+                if (this.pendingRequests.has(correlationId))
+                    this.pendingRequests.delete(correlationId);
                 reject(new Error(`Redis request timed out for ${topic}`));
             }, timeout);
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
-            if (this.enableLog) {
-                console.log(`[Redis] Sending request to ${topic} with content`, message);
-            }
-            await this.client.xAdd(topic, "*", { data: JSON.stringify(message) });
+            await this.publish(topic, message);
         });
     }
     setEnableLog(enable) {
