@@ -5,27 +5,62 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RabbitMQProvider = void 0;
 const amqplib_1 = __importDefault(require("amqplib"));
-const uuid_1 = require("uuid");
 class RabbitMQProvider {
-    constructor(url) {
+    constructor(url, // пример: amqp://guest:guest@localhost:5672
+    clientId) {
         this.url = url;
+        this.clientId = clientId;
         this.enableLog = true;
-        // responseQueue -> (correlationId -> handler)
+        // (correlationId -> handler)
         this.pendingRequests = new Map();
-        this.clientId = `fc-${(0, uuid_1.v4)()}`;
+        // topic -> handler
+        this.topicHandlers = new Map();
+        this.responseQueue = `response_${this.clientId}`;
     }
     async ready() { }
     async connect() {
         this.connection = await amqplib_1.default.connect(this.url);
         this.channel = await this.connection.createChannel();
+        // создаём очередь для RPC ответов
+        await this.channel.assertQueue(this.responseQueue, { exclusive: true });
+        // слушаем её
+        await this.channel.consume(this.responseQueue, async (rawMsg) => {
+            if (!rawMsg)
+                return;
+            try {
+                const decoded = JSON.parse(rawMsg.content.toString());
+                const corrId = rawMsg.properties.correlationId;
+                // 1. RPC response
+                if (corrId && this.pendingRequests.has(corrId)) {
+                    const handler = this.pendingRequests.get(corrId);
+                    handler.resolve(decoded);
+                    clearTimeout(handler.timer);
+                    this.pendingRequests.delete(corrId);
+                    this.channel.ack(rawMsg);
+                    return;
+                }
+                // 2. Обычный хендлер по queue/topic
+                const handler = this.topicHandlers.get(rawMsg.fields.routingKey);
+                if (handler) {
+                    await handler(decoded, rawMsg);
+                }
+                this.channel.ack(rawMsg);
+            }
+            catch (err) {
+                if (this.enableLog)
+                    console.error("[RabbitMQ] Error in message handler:", err);
+            }
+        });
         if (this.enableLog)
-            console.log(`[RabbitMQ] Connected to ${this.url}`);
+            console.log(`[RabbitMQ] Connected: ${this.url}`);
     }
     async disconnect() {
-        if (this.channel)
+        if (this.channel) {
             await this.channel.close();
-        if (this.connection)
+        }
+        if (this.connection) {
             await this.connection.close();
+        }
         if (this.enableLog)
             console.log("[RabbitMQ] Disconnected");
     }
@@ -45,73 +80,42 @@ class RabbitMQProvider {
             return;
         }
         await this.channel.assertQueue(topic, { durable: false });
-        await this.channel.consume(topic, async (msg) => {
-            if (!msg)
+        this.topicHandlers.set(topic, handler);
+        await this.channel.consume(topic, async (rawMsg) => {
+            if (!rawMsg)
                 return;
             try {
-                const decoded = JSON.parse(msg.content.toString());
-                await handler(decoded, msg);
-                this.channel.ack(msg);
+                const decoded = JSON.parse(rawMsg.content.toString());
+                await handler(decoded, rawMsg);
+                this.channel.ack(rawMsg);
             }
             catch (err) {
                 if (this.enableLog)
-                    console.error(`[RabbitMQ] Error handling message on ${topic}:`, err);
-                this.channel.nack(msg, false, false);
+                    console.error("[RabbitMQ] Error in subscription handler:", err);
             }
         });
-        if (this.enableLog)
-            console.log(`[RabbitMQ] Subscribed to ${topic}`);
     }
     async reply(args) {
-        const responseTopic = `response_${args.topic}`;
-        await this.publish(responseTopic, args.message);
+        const responseQueue = args.message?.metadata?.replyTo;
+        if (!responseQueue) {
+            throw new Error("ReplyTo queue not found in message metadata");
+        }
+        this.channel.sendToQueue(responseQueue, Buffer.from(JSON.stringify(args.message)), { correlationId: args.message.id });
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
-        const responseQueue = `response_${this.clientId}_${topic}`;
-        if (!this.pendingRequests.has(responseQueue)) {
-            this.pendingRequests.set(responseQueue, new Map());
-            await this.channel.assertQueue(responseQueue, { durable: false });
-            await this.channel.consume(responseQueue, (msg) => {
-                if (!msg)
-                    return;
-                try {
-                    const decoded = JSON.parse(msg.content.toString());
-                    const correlationId = decoded.id;
-                    const topicHandlers = this.pendingRequests.get(responseQueue);
-                    if (!topicHandlers)
-                        return;
-                    const handler = topicHandlers.get(correlationId);
-                    if (handler) {
-                        handler.resolve(decoded);
-                        clearTimeout(handler.timer);
-                        topicHandlers.delete(correlationId);
-                        if (topicHandlers.size === 0) {
-                            this.pendingRequests.delete(responseQueue);
-                            if (this.enableLog)
-                                console.log(`[RabbitMQ] No more pending handlers for ${responseQueue}`);
-                        }
-                    }
-                    this.channel.ack(msg);
-                }
-                catch (err) {
-                    if (this.enableLog)
-                        console.error(`[RabbitMQ] Error in response handler:`, err);
-                    this.channel.nack(msg, false, false);
-                }
-            });
-            if (this.enableLog)
-                console.log(`[RabbitMQ] Subscribed to response queue ${responseQueue}`);
-        }
+        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseQueue } };
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
-                const topicHandlers = this.pendingRequests.get(responseQueue);
-                if (topicHandlers)
-                    topicHandlers.delete(correlationId);
+                this.pendingRequests.delete(correlationId);
                 reject(new Error(`RabbitMQ request timed out for ${topic}`));
             }, timeout);
-            this.pendingRequests.get(responseQueue).set(correlationId, { resolve, reject, timer });
-            await this.publish(topic, message);
+            this.pendingRequests.set(correlationId, { resolve, reject, timer });
+            await this.channel.assertQueue(topic, { durable: false });
+            this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)), {
+                correlationId,
+                replyTo: this.responseQueue,
+            });
         });
     }
     setEnableLog(enable) {

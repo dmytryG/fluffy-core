@@ -13,6 +13,7 @@ class KafkaProvider {
         this.enableLog = true;
         // responseTopic -> (correlationId -> handler)
         this.pendingRequests = new Map();
+        throw new Error("This provider is deprecated. Use KafkaProviderV2 instead.");
         this.kafka = new kafkajs_1.Kafka({
             clientId: this.clientId,
             brokers: this.brokers,

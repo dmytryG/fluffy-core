@@ -22,6 +22,7 @@ export class KafkaProvider implements IProvider {
         private readonly clientId: string,    // идентификатор клиента
         private readonly groupId: string      // groupId для consumer
     ) {
+        throw new Error("This provider is deprecated. Use KafkaProviderV2 instead.");
         this.kafka = new Kafka({
             clientId: this.clientId,
             brokers: this.brokers,
