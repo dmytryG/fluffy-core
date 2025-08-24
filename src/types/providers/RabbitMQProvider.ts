@@ -24,6 +24,8 @@ export class RabbitMQProvider implements IProvider {
         this.clientId = `fc-${uuidv4()}`
     }
 
+    async ready(): Promise<void> {}
+
     async connect(): Promise<void> {
         this.connection = await amqp.connect(this.url);
         this.channel = await this.connection.createChannel();

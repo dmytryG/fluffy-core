@@ -34,15 +34,7 @@ export class KafkaProviderV2 implements IProvider {
         this.responseTopic = `response_${this.clientId}`;
     }
 
-    async connect(): Promise<void> {
-        this.producer = this.kafka.producer();
-        this.consumer = this.kafka.consumer({ groupId: this.groupId });
-
-        await this.producer.connect();
-        await this.consumer.connect();
-
-        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
-
+    async ready(): Promise<void> {
         // единый consumer.run
         await this.consumer.run({
             autoCommit: false, // в RPC топиках коммиты не нужны
@@ -71,6 +63,16 @@ export class KafkaProviderV2 implements IProvider {
                 }
             },
         });
+    }
+
+    async connect(): Promise<void> {
+        this.producer = this.kafka.producer();
+        this.consumer = this.kafka.consumer({ groupId: this.groupId });
+
+        await this.producer.connect();
+        await this.consumer.connect();
+
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
 
         if (this.enableLog) console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
     }

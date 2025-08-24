@@ -20,6 +20,7 @@ class RedisStreamsProvider {
         this.isConsuming = false;
         this.clientId = `fc-${(0, uuid_1.v4)()}`;
     }
+    async ready() { }
     async connect() {
         this.producer = new ioredis_1.default({ host: this.host, port: this.port });
         this.consumer = new ioredis_1.default({ host: this.host, port: this.port });

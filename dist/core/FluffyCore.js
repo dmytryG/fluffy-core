@@ -71,6 +71,7 @@ class FluffyCore {
                 await this.provider.reply({ m, message: result, topic: pipeline.topic });
             });
         }
+        await this.provider.ready();
     }
     async makeRequest({ data, topic }) {
         const outcoming = {

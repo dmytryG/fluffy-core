@@ -29,6 +29,8 @@ export class RedisStreamsProvider implements IProvider {
         this.clientId = `fc-${uuidv4()}`
     }
 
+    async ready(): Promise<void> {}
+
     async connect(): Promise<void> {
         this.producer = new Redis({ host: this.host, port: this.port });
         this.consumer = new Redis({ host: this.host, port: this.port });

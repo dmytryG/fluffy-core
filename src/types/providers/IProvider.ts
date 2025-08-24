@@ -2,6 +2,7 @@ import {Message} from "../../types/Message";
 
 export interface IProvider {
     connect(): Promise<void>;
+    ready(): Promise<void>;
     disconnect(): Promise<void>;
     setEnableLog(enable: boolean): void
 

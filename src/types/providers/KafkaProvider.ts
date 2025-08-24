@@ -29,6 +29,8 @@ export class KafkaProvider implements IProvider {
         });
     }
 
+    async ready(): Promise<void> {}
+
     async connect(): Promise<void> {
         this.producer = this.kafka.producer();
         this.consumer = this.kafka.consumer({ groupId: this.groupId });

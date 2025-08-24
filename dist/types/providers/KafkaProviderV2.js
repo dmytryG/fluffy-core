@@ -19,12 +19,7 @@ class KafkaProviderV2 {
         });
         this.responseTopic = `response_${this.clientId}`;
     }
-    async connect() {
-        this.producer = this.kafka.producer();
-        this.consumer = this.kafka.consumer({ groupId: this.groupId });
-        await this.producer.connect();
-        await this.consumer.connect();
-        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
+    async ready() {
         // единый consumer.run
         await this.consumer.run({
             autoCommit: false, // в RPC топиках коммиты не нужны
@@ -53,6 +48,13 @@ class KafkaProviderV2 {
                 }
             },
         });
+    }
+    async connect() {
+        this.producer = this.kafka.producer();
+        this.consumer = this.kafka.consumer({ groupId: this.groupId });
+        await this.producer.connect();
+        await this.consumer.connect();
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
         if (this.enableLog)
             console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
     }

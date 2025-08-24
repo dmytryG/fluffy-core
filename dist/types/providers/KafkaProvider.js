@@ -19,6 +19,7 @@ class KafkaProvider {
             logLevel: this.enableLog ? kafkajs_1.logLevel.INFO : kafkajs_1.logLevel.NOTHING,
         });
     }
+    async ready() { }
     async connect() {
         this.producer = this.kafka.producer();
         this.consumer = this.kafka.consumer({ groupId: this.groupId });

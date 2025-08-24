@@ -14,6 +14,7 @@ class RabbitMQProvider {
         this.pendingRequests = new Map();
         this.clientId = `fc-${(0, uuid_1.v4)()}`;
     }
+    async ready() { }
     async connect() {
         this.connection = await amqplib_1.default.connect(this.url);
         this.channel = await this.connection.createChannel();

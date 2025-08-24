@@ -9,6 +9,9 @@ export class NATSProvider implements IProvider {
 
     constructor(private readonly url: string) {}
 
+    async ready(): Promise<void> {
+    }
+
     async connect(): Promise<void> {
         this.connection = await connect({ servers: this.url });
         if (this.enableLog) console.log(`[NATS] Connected to ${this.url}`);

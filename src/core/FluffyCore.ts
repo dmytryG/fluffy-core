@@ -78,6 +78,8 @@ export default class FluffyCore {
                 await this.provider.reply({ m, message: result, topic: pipeline.topic })
             });
         }
+
+        await this.provider.ready();
     }
 
     async makeRequest({data, topic}: {data: any, topic: string}): Promise<Message> {

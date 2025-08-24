@@ -8,6 +8,8 @@ class NATSProvider {
         this.codec = (0, nats_1.JSONCodec)();
         this.enableLog = true;
     }
+    async ready() {
+    }
     async connect() {
         this.connection = await (0, nats_1.connect)({ servers: this.url });
         if (this.enableLog)
