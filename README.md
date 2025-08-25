@@ -166,6 +166,3 @@ not stable, there are some tests that I have to perform, but it's
 usable. And oh gosh how i sufferred several years ago when I
 had to implement similar request-reply logic for Kafka, I hope
 this library won't make you suffer too.
-
-[//]: # (If you wander, why is it called fluffy-core? It's because
-[//]: # (it was written when I was listening to furry-hardcore/rave :3)
