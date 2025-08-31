@@ -73,6 +73,20 @@ class FluffyCore {
         }
         await this.provider.ready();
     }
+    async fireAndForget({ data, topic }) {
+        const outcoming = {
+            req: data,
+            id: (0, uuid_1.v4)(),
+            isResponse: false,
+            resp: undefined,
+            isError: undefined,
+            safeMetadata: undefined,
+            noResponse: true,
+        };
+        if (this.enableLog)
+            console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic);
+        await this.provider.publish(topic, outcoming);
+    }
     async makeRequest({ data, topic }) {
         const outcoming = {
             req: data,

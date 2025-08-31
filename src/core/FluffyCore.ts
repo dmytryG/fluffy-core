@@ -82,6 +82,20 @@ export default class FluffyCore {
         await this.provider.ready();
     }
 
+    async fireAndForget({data, topic}: {data: any, topic: string}): Promise<void> {
+        const outcoming: Message = {
+            req: data,
+            id: uuidv4(),
+            isResponse: false,
+            resp: undefined,
+            isError: undefined,
+            safeMetadata: undefined,
+            noResponse: true,
+        }
+        if (this.enableLog) console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic)
+        await this.provider.publish(topic, outcoming)
+    }
+
     async makeRequest({data, topic}: {data: any, topic: string}): Promise<Message> {
         const outcoming: Message = {
             req: data,

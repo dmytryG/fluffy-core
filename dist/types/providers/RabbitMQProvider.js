@@ -105,7 +105,7 @@ class RabbitMQProvider {
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
             if (this.enableLog)
                 console.log(`[RabbitMQ] Sending request to ${topic} with content`, message);
-            this.channel.sendToQueue(topic, Buffer.from(JSON.stringify(message)));
+            this.publish(topic, message);
         });
     }
     setEnableLog(enable) {

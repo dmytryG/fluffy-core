@@ -18,7 +18,7 @@ class RedisStreamsProvider {
         this.wasResponseQueueCreated = false;
         // (correlationId -> handler)
         this.pendingRequests = new Map();
-        this.isConsuming = false;
+        this.isConsuming = true;
         this.clientId = `fc-${(0, uuid_1.v4)()}`;
         this.responseTopic = `response_${this.clientId}`;
     }
@@ -37,6 +37,8 @@ class RedisStreamsProvider {
             console.log("[Redis] Disconnected");
     }
     async publish(topic, message) {
+        if (this.enableLog)
+            console.log(`[RSProvider] Publishing to ${topic}`, message);
         await this.producer.xadd(topic, "*", "value", JSON.stringify(message));
     }
     async subscribe(topic, handler) {
@@ -44,10 +46,7 @@ class RedisStreamsProvider {
             // Создаем группу, если нет
             await this.producer.xgroup("CREATE", topic, this.groupId, "$", "MKSTREAM").catch(() => {
             });
-            if (!this.isConsuming) {
-                this.isConsuming = true;
-                this.consumeLoop(topic, handler);
-            }
+            this.consumeLoop(topic, handler);
         }
         catch (err) {
             if (this.enableLog)
@@ -55,22 +54,23 @@ class RedisStreamsProvider {
         }
     }
     async consumeLoop(topic, handler) {
+        if (this.enableLog)
+            console.log(`[RSProvider] Subscribing to ${topic}`);
+        let lastId = "0"; // читаем всё, начиная с начала
         while (this.isConsuming) {
             try {
-                const streams = await this.consumer.call("XREADGROUP", "GROUP", this.groupId, this.consumerId, "BLOCK", "5000", "COUNT", "10", "STREAMS", topic, ">");
+                const streams = await this.consumer.xread(
+                // @ts-ignore
+                "BLOCK", 5000, "COUNT", 10, "STREAMS", topic, lastId === "0" ? "0" : lastId);
                 if (streams) {
                     for (const [, messages] of streams) {
                         for (const [id, fields] of messages) {
-                            try {
-                                const rawValue = fields[1];
-                                const decoded = JSON.parse(rawValue);
-                                await handler(decoded, { id, fields });
-                                await this.consumer.xack(topic, this.groupId, id);
-                            }
-                            catch (err) {
-                                if (this.enableLog)
-                                    console.error(`[Redis] Error handling message on ${topic}:`, err);
-                            }
+                            const rawValue = fields[1];
+                            const decoded = JSON.parse(rawValue);
+                            if (this.enableLog)
+                                console.log(`[RSProvider] Got message by ${topic}`, decoded);
+                            await handler(decoded, { id, fields });
+                            lastId = id;
                         }
                     }
                 }
@@ -82,11 +82,17 @@ class RedisStreamsProvider {
         }
     }
     async reply(args) {
-        const responseTopic = `response_${args.topic}`;
+        const responseTopic = args.message?.metadata?.replyTo;
+        if (this.enableLog)
+            console.log(`[RSProvider] Replying to ${args.message?.metadata?.replyTo}`);
+        if (!responseTopic) {
+            throw new Error("Reply to topic not found in message metadata");
+        }
         await this.publish(responseTopic, args.message);
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
+        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseTopic } };
         if (!this.wasResponseQueueCreated) {
             // Подписка на ответный стрим
             await this.producer.xgroup("CREATE", this.responseTopic, this.groupId, "$", "MKSTREAM").catch(() => {

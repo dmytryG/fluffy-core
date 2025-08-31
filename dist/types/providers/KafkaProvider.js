@@ -3,29 +3,58 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.KafkaProvider = void 0;
 const kafkajs_1 = require("kafkajs");
 class KafkaProvider {
-    constructor(brokers, // список брокеров
-    clientId, // идентификатор клиента
-    groupId // groupId для consumer
-    ) {
+    constructor(brokers, clientId, groupId) {
         this.brokers = brokers;
         this.clientId = clientId;
         this.groupId = groupId;
         this.enableLog = true;
-        // responseTopic -> (correlationId -> handler)
+        // (correlationId -> handler)
         this.pendingRequests = new Map();
-        throw new Error("This provider is deprecated. Use KafkaProviderV2 instead.");
+        // обычные подписки: topic -> handler
+        this.topicHandlers = new Map();
         this.kafka = new kafkajs_1.Kafka({
             clientId: this.clientId,
             brokers: this.brokers,
             logLevel: this.enableLog ? kafkajs_1.logLevel.INFO : kafkajs_1.logLevel.NOTHING,
         });
+        this.responseTopic = `response_${this.clientId}`;
     }
-    async ready() { }
+    async ready() {
+        // единый consumer.run
+        await this.consumer.run({
+            autoCommit: false, // в RPC топиках коммиты не нужны
+            eachMessage: async (payload) => {
+                try {
+                    const decoded = JSON.parse(payload.message.value?.toString() || "{}");
+                    const topic = payload.topic;
+                    // 1. Обработка RPC response
+                    const rpcHandler = this.pendingRequests.get(decoded.id);
+                    if (rpcHandler) {
+                        if (rpcHandler) {
+                            rpcHandler.resolve(decoded);
+                            clearTimeout(rpcHandler.timer);
+                            return;
+                        }
+                    }
+                    // 2. Обычный подписанный хендлер
+                    const handler = this.topicHandlers.get(topic);
+                    if (handler) {
+                        await handler(decoded, payload);
+                    }
+                }
+                catch (err) {
+                    if (this.enableLog)
+                        console.error(`[Kafka] Error in message handler:`, err);
+                }
+            },
+        });
+    }
     async connect() {
         this.producer = this.kafka.producer();
         this.consumer = this.kafka.consumer({ groupId: this.groupId });
         await this.producer.connect();
         await this.consumer.connect();
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
         if (this.enableLog)
             console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
     }
@@ -47,9 +76,7 @@ class KafkaProvider {
         }
         await this.producer.send({
             topic,
-            messages: [
-                { value: JSON.stringify(message) }
-            ],
+            messages: [{ value: JSON.stringify(message) }],
         });
     }
     async subscribe(topic, handler) {
@@ -58,61 +85,25 @@ class KafkaProvider {
                 console.error("Kafka consumer not initialized");
             return;
         }
+        this.topicHandlers.set(topic, handler);
         await this.consumer.subscribe({ topic, fromBeginning: false });
-        await this.consumer.run({
-            eachMessage: async (payload) => {
-                try {
-                    const decoded = JSON.parse(payload.message.value?.toString() || "{}");
-                    await handler(decoded, payload);
-                }
-                catch (err) {
-                    if (this.enableLog)
-                        console.error(`[Kafka] Error handling message on ${topic}:`, err);
-                }
-            },
-        });
     }
     async reply(args) {
-        const responseTopic = `response_${args.topic}`;
+        const responseTopic = args.message?.metadata?.replyTo;
+        if (!responseTopic) {
+            throw new Error("Reply to topic not found in message metadata");
+        }
         await this.publish(responseTopic, args.message);
     }
     async makeRequest(topic, message, timeout = 5000) {
         const correlationId = message.id;
-        const responseTopic = `response_${topic}`;
-        if (!this.pendingRequests.has(responseTopic)) {
-            this.pendingRequests.set(responseTopic, new Map());
-            // Подписываемся на responseTopic первый раз
-            await this.consumer.subscribe({ topic: responseTopic, fromBeginning: false });
-            await this.consumer.run({
-                eachMessage: async (payload) => {
-                    try {
-                        const decoded = JSON.parse(payload.message.value?.toString() || "{}");
-                        const correlationId = decoded.id;
-                        const topicHandlers = this.pendingRequests.get(responseTopic);
-                        if (!topicHandlers)
-                            return;
-                        const handler = topicHandlers.get(correlationId);
-                        if (handler) {
-                            handler.resolve(decoded);
-                            clearTimeout(handler.timer);
-                            topicHandlers.delete(correlationId);
-                        }
-                    }
-                    catch (err) {
-                        if (this.enableLog)
-                            console.error(`[Kafka] Error in response handler:`, err);
-                    }
-                },
-            });
-        }
+        message = { ...message, metadata: { ...message.metadata, replyTo: this.responseTopic } };
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
-                const topicHandlers = this.pendingRequests.get(responseTopic);
-                if (topicHandlers)
-                    topicHandlers.delete(correlationId);
+                this.pendingRequests.delete(correlationId);
                 reject(new Error(`Kafka request timed out for ${topic}`));
             }, timeout);
-            this.pendingRequests.get(responseTopic).set(correlationId, { resolve, reject, timer });
+            this.pendingRequests.set(correlationId, { resolve, reject, timer });
             // Отправляем запрос
             await this.publish(topic, message);
         });

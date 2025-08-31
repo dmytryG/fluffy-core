@@ -20,7 +20,7 @@ But some things may not work as expected at current stage.
 
 # How to use
 It's simple, firstly create a provider object (you can use classes
-NATSProvider, KafkaProviderV2, RabbitMQProvider, RedisStreamsProvider)
+NATSProvider, KafkaProvider, RabbitMQProvider, RedisStreamsProvider)
 ```typescript
 const provider = new NATSProvider('localhost:4222')
 ```
