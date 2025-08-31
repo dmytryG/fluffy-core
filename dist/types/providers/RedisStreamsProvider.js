@@ -7,13 +7,10 @@ exports.RedisStreamsProvider = void 0;
 const ioredis_1 = __importDefault(require("ioredis"));
 const uuid_1 = require("uuid");
 class RedisStreamsProvider {
-    constructor(host, port, groupId, // consumer group
-    consumerId // consumer name inside group
-    ) {
+    constructor(host, port, groupId) {
         this.host = host;
         this.port = port;
         this.groupId = groupId;
-        this.consumerId = consumerId;
         this.enableLog = true;
         this.wasResponseQueueCreated = false;
         // (correlationId -> handler)

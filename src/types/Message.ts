@@ -6,5 +6,5 @@ export interface Message {
     isError: boolean | undefined
     safeMetadata: any // Will be removed before sending
     metadata?: any | undefined
-    noResponse?: boolean | undefined
+    noReply?: boolean | undefined
 }

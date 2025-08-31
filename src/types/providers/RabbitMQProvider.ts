@@ -1,13 +1,8 @@
 import amqp, {Connection, Channel, ConsumeMessage, ChannelModel} from "amqplib";
 import { IProvider } from "../../types/providers/IProvider";
 import { Message } from "../../types/Message";
+import { PendingHandler } from "../../types/PendingHandler";
 import {v4 as uuidv4} from "uuid";
-
-type PendingHandler = {
-    resolve: (value: any) => void;
-    reject: (reason?: any) => void;
-    timer: NodeJS.Timeout;
-};
 
 export class RabbitMQProvider implements IProvider {
     private connection!: ChannelModel;

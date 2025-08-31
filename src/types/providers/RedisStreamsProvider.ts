@@ -1,13 +1,8 @@
 import Redis from "ioredis";
 import {IProvider} from "../../types/providers/IProvider";
 import {Message} from "../../types/Message";
+import {PendingHandler} from "../../types/PendingHandler";
 import {v4 as uuidv4} from "uuid";
-
-type PendingHandler = {
-    resolve: (value: any) => void;
-    reject: (reason?: any) => void;
-    timer: NodeJS.Timeout;
-};
 
 export class RedisStreamsProvider implements IProvider {
     private producer!: Redis;
@@ -26,7 +21,6 @@ export class RedisStreamsProvider implements IProvider {
         private readonly host: string,
         private readonly port: number,
         private readonly groupId: string,   // consumer group
-        private readonly consumerId: string // consumer name inside group
     ) {
         this.clientId = `fc-${uuidv4()}`
         this.responseTopic = `response_${this.clientId}`;

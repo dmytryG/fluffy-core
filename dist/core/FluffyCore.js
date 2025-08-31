@@ -68,7 +68,8 @@ class FluffyCore {
                 };
                 if (this.enableLog)
                     console.log(`${new Date().toISOString()} sending reply`, result);
-                await this.provider.reply({ m, message: result, topic: pipeline.topic });
+                if (!result.noReply)
+                    await this.provider.reply({ m, message: result, topic: pipeline.topic });
             });
         }
         await this.provider.ready();
@@ -81,7 +82,7 @@ class FluffyCore {
             resp: undefined,
             isError: undefined,
             safeMetadata: undefined,
-            noResponse: true,
+            noReply: true,
         };
         if (this.enableLog)
             console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic);
