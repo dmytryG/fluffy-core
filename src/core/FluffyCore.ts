@@ -82,7 +82,7 @@ export default class FluffyCore {
         await this.provider.ready();
     }
 
-    async fireAndForget({data, topic}: {data: any, topic: string}): Promise<void> {
+    async fireAndForget({data, topic, metadata}: {data: any, topic: string, metadata?: any}): Promise<void> {
         const outcoming: Message = {
             req: data,
             id: uuidv4(),
@@ -91,19 +91,21 @@ export default class FluffyCore {
             isError: undefined,
             safeMetadata: undefined,
             noReply: true,
+            metadata,
         }
         if (this.enableLog) console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic)
         await this.provider.publish(topic, outcoming)
     }
 
-    async makeRequest({data, topic}: {data: any, topic: string}): Promise<Message> {
+    async makeRequest({data, topic, metadata}: {data: any, topic: string, metadata?: any}): Promise<Message> {
         const outcoming: Message = {
             req: data,
             id: uuidv4(),
             isResponse: false,
             resp: undefined,
             isError: undefined,
-            safeMetadata: undefined
+            safeMetadata: undefined,
+            metadata,
         }
         if (this.enableLog) console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic)
         const resp = await this.provider.makeRequest(topic, outcoming)
@@ -114,20 +116,21 @@ export default class FluffyCore {
         return resp
     }
 
-    async makeRequestSimplify({data, topic}: {data: any, topic: string}): Promise<any> {
-        const res = await this.makeRequest({ data, topic })
+    async makeRequestSimplify({data, topic, metadata}: {data: any, topic: string, metadata?: any}): Promise<any> {
+        const res = await this.makeRequest({ data, topic, metadata })
         if (res.isError) throw new APIError({ error: res.resp })
         return res.resp
     }
 
-    async broadcast({data, topic}: {data: any, topic: string}): Promise<void> {
+    async broadcast({data, topic, metadata}: {data: any, topic: string, metadata?: any}): Promise<void> {
         const outcoming: Message = {
             req: data,
             id: uuidv4(),
             isResponse: false,
             resp: undefined,
             isError: undefined,
-            safeMetadata: undefined
+            safeMetadata: undefined,
+            metadata,
         }
         if (this.enableLog) console.log(`${new Date().toISOString()} prepared message to broadcast`, outcoming, 'by topic', topic)
         await this.provider.publish(topic, outcoming)

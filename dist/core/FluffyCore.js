@@ -74,7 +74,7 @@ class FluffyCore {
         }
         await this.provider.ready();
     }
-    async fireAndForget({ data, topic }) {
+    async fireAndForget({ data, topic, metadata }) {
         const outcoming = {
             req: data,
             id: (0, uuid_1.v4)(),
@@ -83,19 +83,21 @@ class FluffyCore {
             isError: undefined,
             safeMetadata: undefined,
             noReply: true,
+            metadata,
         };
         if (this.enableLog)
             console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic);
         await this.provider.publish(topic, outcoming);
     }
-    async makeRequest({ data, topic }) {
+    async makeRequest({ data, topic, metadata }) {
         const outcoming = {
             req: data,
             id: (0, uuid_1.v4)(),
             isResponse: false,
             resp: undefined,
             isError: undefined,
-            safeMetadata: undefined
+            safeMetadata: undefined,
+            metadata,
         };
         if (this.enableLog)
             console.log(`${new Date().toISOString()} prepared message to send`, outcoming, 'by topic', topic);
@@ -108,20 +110,21 @@ class FluffyCore {
         }
         return resp;
     }
-    async makeRequestSimplify({ data, topic }) {
-        const res = await this.makeRequest({ data, topic });
+    async makeRequestSimplify({ data, topic, metadata }) {
+        const res = await this.makeRequest({ data, topic, metadata });
         if (res.isError)
             throw new APIError_1.default({ error: res.resp });
         return res.resp;
     }
-    async broadcast({ data, topic }) {
+    async broadcast({ data, topic, metadata }) {
         const outcoming = {
             req: data,
             id: (0, uuid_1.v4)(),
             isResponse: false,
             resp: undefined,
             isError: undefined,
-            safeMetadata: undefined
+            safeMetadata: undefined,
+            metadata,
         };
         if (this.enableLog)
             console.log(`${new Date().toISOString()} prepared message to broadcast`, outcoming, 'by topic', topic);
