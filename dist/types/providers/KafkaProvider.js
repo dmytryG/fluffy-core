@@ -8,16 +8,35 @@ class KafkaProvider {
         this.clientId = clientId;
         this.groupId = groupId;
         this.enableLog = true;
+        this.admin = undefined;
         // (correlationId -> handler)
         this.pendingRequests = new Map();
         // обычные подписки: topic -> handler
         this.topicHandlers = new Map();
+        this.topicsEnsured = [];
         this.kafka = new kafkajs_1.Kafka({
             clientId: this.clientId,
             brokers: this.brokers,
             logLevel: this.enableLog ? kafkajs_1.logLevel.INFO : kafkajs_1.logLevel.NOTHING,
         });
         this.responseTopic = `response_${this.clientId}`;
+    }
+    async ensureTopic(topic) {
+        if (this.topicsEnsured.includes(topic))
+            return;
+        if (!this.admin) {
+            this.admin = this.kafka.admin();
+            await this.admin.connect();
+        }
+        await this.admin.createTopics({
+            topics: [{
+                    topic,
+                    numPartitions: 1,
+                    replicationFactor: 1,
+                }],
+            waitForLeaders: true,
+        });
+        this.topicsEnsured.push(topic);
     }
     async ready() {
         // единый consumer.run
@@ -54,6 +73,7 @@ class KafkaProvider {
         this.consumer = this.kafka.consumer({ groupId: this.groupId });
         await this.producer.connect();
         await this.consumer.connect();
+        await this.ensureTopic(this.responseTopic);
         await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
         if (this.enableLog)
             console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
@@ -65,6 +85,9 @@ class KafkaProvider {
         if (this.consumer) {
             await this.consumer.disconnect();
         }
+        if (this.admin) {
+            await this.admin.disconnect();
+        }
         if (this.enableLog)
             console.log("[Kafka] Disconnected");
     }
@@ -74,6 +97,7 @@ class KafkaProvider {
                 console.error("Kafka producer not initialized");
             return;
         }
+        await this.ensureTopic(topic);
         await this.producer.send({
             topic,
             messages: [{ value: JSON.stringify(message) }],
@@ -86,6 +110,7 @@ class KafkaProvider {
             return;
         }
         this.topicHandlers.set(topic, handler);
+        await this.ensureTopic(topic);
         await this.consumer.subscribe({ topic, fromBeginning: false });
     }
     async reply(args) {
@@ -93,6 +118,7 @@ class KafkaProvider {
         if (!responseTopic) {
             throw new Error("Reply to topic not found in message metadata");
         }
+        await this.ensureTopic(responseTopic);
         await this.publish(responseTopic, args.message);
     }
     async makeRequest(topic, message, timeout = 5000) {
@@ -105,6 +131,7 @@ class KafkaProvider {
             }, timeout);
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
             // Отправляем запрос
+            await this.ensureTopic(topic);
             await this.publish(topic, message);
         });
     }

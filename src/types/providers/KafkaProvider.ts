@@ -1,4 +1,4 @@
-import { Kafka, Producer, Consumer, EachMessagePayload, logLevel } from "kafkajs";
+import {Kafka, Producer, Consumer, EachMessagePayload, logLevel, Admin} from "kafkajs";
 import { IProvider } from "../../types/providers/IProvider";
 import { Message } from "../../types/Message";
 import {PendingHandler} from "../../types/PendingHandler";
@@ -9,12 +9,14 @@ export class KafkaProvider implements IProvider {
     private consumer!: Consumer;
     public enableLog: boolean = true;
     private responseTopic: string;
+    private admin: Admin | undefined = undefined;
 
     // (correlationId -> handler)
     private pendingRequests: Map<string, PendingHandler> = new Map();
 
     // обычные подписки: topic -> handler
     private topicHandlers: Map<string, (msg: Message, raw: EachMessagePayload) => Promise<void> | void> = new Map();
+    private topicsEnsured: string[] = [];
 
     constructor(
         private readonly brokers: string[],
@@ -28,6 +30,25 @@ export class KafkaProvider implements IProvider {
         });
         this.responseTopic = `response_${this.clientId}`;
     }
+
+    async ensureTopic(topic: string) {
+        if (this.topicsEnsured.includes(topic)) return;
+        if (!this.admin) {
+            this.admin = this.kafka.admin();
+            await this.admin.connect();
+        }
+        await this.admin.createTopics({
+            topics: [{
+                topic,
+                numPartitions: 1,
+                replicationFactor: 1,
+            }],
+            waitForLeaders: true,
+        });
+        this.topicsEnsured.push(topic);
+
+    }
+
 
     async ready(): Promise<void> {
         // единый consumer.run
@@ -67,6 +88,7 @@ export class KafkaProvider implements IProvider {
         await this.producer.connect();
         await this.consumer.connect();
 
+        await this.ensureTopic(this.responseTopic);
         await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
 
         if (this.enableLog) console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
@@ -79,6 +101,9 @@ export class KafkaProvider implements IProvider {
         if (this.consumer) {
             await this.consumer.disconnect();
         }
+        if (this.admin) {
+            await this.admin.disconnect();
+        }
         if (this.enableLog) console.log("[Kafka] Disconnected");
     }
 
@@ -88,6 +113,7 @@ export class KafkaProvider implements IProvider {
             return;
         }
 
+        await this.ensureTopic(topic);
         await this.producer.send({
             topic,
             messages: [{ value: JSON.stringify(message) }],
@@ -104,12 +130,14 @@ export class KafkaProvider implements IProvider {
         }
 
         this.topicHandlers.set(topic, handler);
+        await this.ensureTopic(topic);
         await this.consumer.subscribe({ topic, fromBeginning: false });
     }
 
     async reply(args: { topic: string; message: Message }): Promise<void> {
         const responseTopic = args.message?.metadata?.replyTo;
         if (!responseTopic) { throw new Error("Reply to topic not found in message metadata"); }
+        await this.ensureTopic(responseTopic);
         await this.publish(responseTopic, args.message);
     }
 
@@ -126,6 +154,7 @@ export class KafkaProvider implements IProvider {
             this.pendingRequests.set(correlationId, { resolve, reject, timer });
 
             // Отправляем запрос
+            await this.ensureTopic(topic);
             await this.publish(topic, message);
         });
     }
