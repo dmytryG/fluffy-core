@@ -28,6 +28,7 @@ class RedisStreamsProvider {
             console.log(`[Redis] Connected to ${this.host}:${this.port}`);
     }
     async disconnect() {
+        this.isConsuming = false;
         await this.producer.quit();
         await this.consumer.quit();
         if (this.enableLog)

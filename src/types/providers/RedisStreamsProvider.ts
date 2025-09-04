@@ -37,6 +37,7 @@ export class RedisStreamsProvider implements IProvider {
     }
 
     async disconnect(): Promise<void> {
+        this.isConsuming = false;
         await this.producer.quit();
         await this.consumer.quit();
         if (this.enableLog) console.log("[Redis] Disconnected");

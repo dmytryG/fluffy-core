@@ -74,6 +74,9 @@ class FluffyCore {
         }
         await this.provider.ready();
     }
+    async stop() {
+        await this.provider.disconnect();
+    }
     async fireAndForget({ data, topic, metadata }) {
         const outcoming = {
             req: data,

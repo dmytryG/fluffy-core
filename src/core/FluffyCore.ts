@@ -82,6 +82,10 @@ export default class FluffyCore {
         await this.provider.ready();
     }
 
+    async stop() {
+        await this.provider.disconnect();
+    }
+
     async fireAndForget({data, topic, metadata}: {data: any, topic: string, metadata?: any}): Promise<void> {
         const outcoming: Message = {
             req: data,
