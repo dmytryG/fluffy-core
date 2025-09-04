@@ -37,6 +37,8 @@ export class KafkaProvider implements IProvider {
             this.admin = this.kafka.admin();
             await this.admin.connect();
         }
+        this.topicsEnsured = await this.admin.listTopics();
+        if (this.topicsEnsured.includes(topic)) return;
         await this.admin.createTopics({
             topics: [{
                 topic,
