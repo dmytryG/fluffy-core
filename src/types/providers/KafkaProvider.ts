@@ -54,6 +54,14 @@ export class KafkaProvider implements IProvider {
 
     async ready(): Promise<void> {
         // единый consumer.run
+        await Promise.all(Array.from(this.topicHandlers.keys()).map(async (topic) => {
+            await this.ensureTopic(topic);
+            await this.consumer.subscribe({ topic, fromBeginning: false });
+        }))
+
+        await this.ensureTopic(this.responseTopic);
+        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
+
         await this.consumer.run({
             autoCommit: false, // в RPC топиках коммиты не нужны
             eachMessage: async (payload: EachMessagePayload) => {
@@ -89,9 +97,6 @@ export class KafkaProvider implements IProvider {
 
         await this.producer.connect();
         await this.consumer.connect();
-
-        await this.ensureTopic(this.responseTopic);
-        await this.consumer.subscribe({ topic: this.responseTopic, fromBeginning: false });
 
         if (this.enableLog) console.log(`[Kafka] Connected to brokers: ${this.brokers.join(", ")}`);
     }
@@ -132,8 +137,6 @@ export class KafkaProvider implements IProvider {
         }
 
         this.topicHandlers.set(topic, handler);
-        await this.ensureTopic(topic);
-        await this.consumer.subscribe({ topic, fromBeginning: false });
     }
 
     async reply(args: { topic: string; message: Message }): Promise<void> {
