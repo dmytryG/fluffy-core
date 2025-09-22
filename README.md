@@ -5,6 +5,7 @@ NATS, Kafka, RabbitMQ and RedisStreams and provides unified interface for fast i
 in a project.
 
 [GitHub of a project](https://github.com/dmytryG/fluffy-core)
+[NPM of a project](https://www.npmjs.com/package/fluffy-core?activeTab=readme)
 
 # THIS PROJECT IS STILL UNDER DEVELOPMENT!
 Please be careful in case of using it in production!
